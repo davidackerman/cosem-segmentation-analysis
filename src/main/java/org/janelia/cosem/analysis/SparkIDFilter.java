@@ -35,6 +35,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
+import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -221,16 +222,8 @@ public class SparkIDFilter {
 		final int[] blockSize = attributes.getBlockSize();
 		final int n = dimensions.length;
 		
-
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
-		n5Writer.createDataset(
-				datasetName + suffix,
-				dimensions,
-				blockSize,
-				attributes.getDataType(),
-				new GzipCompression());
-		n5Writer.setAttribute(datasetName + suffix, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, datasetName)));
-
+		ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName + suffix);
+		
 		/*
 		 * grid block size for parallelization to minimize double loading of
 		 * blocks

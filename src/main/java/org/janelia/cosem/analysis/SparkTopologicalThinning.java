@@ -38,6 +38,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
+import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.cosem.util.Skeletonize3D_;
 import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -161,13 +162,10 @@ public class SparkTopologicalThinning {
 			n5Reader = new N5FSReader(n5OutputPath);
 			attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 		}
-		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();
 		
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
-		n5Writer.createDataset(outputDatasetName, dimensions, blockSize, attributes.getDataType(), new GzipCompression());
-		n5Writer.setAttribute(outputDatasetName, "pixelResolution", new IOHelper.PixelResolution(IOHelper.getResolution(n5Reader, originalInputDatasetName)));
-		
+		ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, originalInputDatasetName, n5OutputPath, outputDatasetName);
+			
 		List<BlockInformation> blockInformationListThinningRequired = new LinkedList<BlockInformation>();
 		for(BlockInformation currentBlockInformation : blockInformationList) {
 			if(currentBlockInformation.needToThinAgainCurrent || iteration<=1) {//need two iterations to complete to ensure block is in _even and _odd

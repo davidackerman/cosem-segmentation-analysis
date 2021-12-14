@@ -27,6 +27,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
+import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
@@ -39,6 +40,8 @@ import org.kohsuke.args4j.Option;
 
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.view.IntervalView;
@@ -129,24 +132,13 @@ public class SparkLabelPredictionWithConnectedComponents {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final void labelPredictionsWithConnectedComponents(
+	public static final <T extends IntegerType<T> & NativeType<T>> void labelPredictionsWithConnectedComponents(
 			final JavaSparkContext sc, final String predictionN5Path,final String predictionDatasetName, final String connectedComponentsN5Path,
 			final String connectedComponentsDatasetName, final String outputN5Path, double thresholdIntensityCutoff, List<BlockInformation> blockInformationList) throws IOException {
-
-		// Get attributes of input data sets.
-		final N5Reader predictionN5Reader = new N5FSReader(predictionN5Path);
-		final DatasetAttributes attributes = predictionN5Reader.getDatasetAttributes(predictionDatasetName);
-		final int[] blockSize = attributes.getBlockSize();
-		final long[] outputDimensions = attributes.getDimensions();
-		final double [] pixelResolution = IOHelper.getResolution(predictionN5Reader, predictionDatasetName);
-				
+					
 		// Create output dataset
 		final String outputN5DatasetName = predictionDatasetName+"_labeledWith_"+connectedComponentsDatasetName;
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
-		n5Writer.createGroup(outputN5DatasetName);
-		n5Writer.createDataset(outputN5DatasetName, outputDimensions, blockSize,
-				org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
-		n5Writer.setAttribute(outputN5DatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
+		ProcessingHelper.createDatasetUsingTemplateDataset(connectedComponentsN5Path, connectedComponentsDatasetName, predictionN5Path, outputN5DatasetName);
 		
 		// Do the labeling, parallelized over blocks
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
@@ -163,19 +155,19 @@ public class SparkLabelPredictionWithConnectedComponents {
 			
 					
 			final N5Reader connectedComponentsReaderLocal = new N5FSReader(connectedComponentsN5Path);
-			IntervalView<UnsignedLongType> connectedComponents = Views.offsetInterval(Views.extendZero(
-						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(connectedComponentsReaderLocal, connectedComponentsDatasetName)
+			IntervalView<T> connectedComponents = Views.offsetInterval(Views.extendZero(
+						(RandomAccessibleInterval<T>) N5Utils.open(connectedComponentsReaderLocal, connectedComponentsDatasetName)
 						),offset, dimension);
 								
 			Cursor<UnsignedByteType> predictionCursor = prediction.cursor();
-			Cursor<UnsignedLongType> connectedComponentsCursor = connectedComponents.cursor();
+			Cursor<T> connectedComponentsCursor = connectedComponents.cursor();
 			while(predictionCursor.hasNext()) {
 				predictionCursor.next();
 				connectedComponentsCursor.next();
-				long objectID = connectedComponentsCursor.get().get();
+				long objectID = connectedComponentsCursor.get().getIntegerLong();
 				int predictionValue = predictionCursor.get().get();
 				if(objectID>0 && predictionValue<thresholdIntensityCutoff) {
-						connectedComponentsCursor.get().set(0);
+						connectedComponentsCursor.get().setInteger(0);
 				}
 			}
 			

@@ -27,6 +27,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
+import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
@@ -234,7 +235,8 @@ public class SparkCrop {
 				N5Utils.saveBlock(sourceConverted, n5BlockWriter, outputN5DatasetName, blockInformation.gridBlock[2]);
 			}
 			else {
-				final RandomAccessibleInterval<T> source = Views.offsetInterval((RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputN5DatasetName), offset, dimension);
+			    	final RandomAccessibleInterval<T> source = ProcessingHelper.getOffsetIntervalExtendZeroRAI(inputN5Path,inputN5DatasetName, offset, dimension);
+				//final RandomAccessibleInterval<T> source = Views.offsetInterval((RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputN5DatasetName), offset, dimension);
 				
 				if(attributes.getDataType()==DataType.FLOAT64) {
 					N5Utils.saveBlock((RandomAccessibleInterval<FloatType>)source, n5BlockWriter, outputN5DatasetName, blockInformation.gridBlock[2]);

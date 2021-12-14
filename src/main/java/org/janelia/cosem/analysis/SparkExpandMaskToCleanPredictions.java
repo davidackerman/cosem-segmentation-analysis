@@ -49,8 +49,8 @@ import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.FloatArray;
 import net.imglib2.type.logic.NativeBoolType;
+import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
-import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.Views;
 
@@ -169,7 +169,7 @@ public class SparkExpandMaskToCleanPredictions {
 	 * @throws IOException
 	 */
 	@SuppressWarnings("unchecked")
-	public static final void expandAndApplyMask(
+	public static final <T extends IntegerType<T>> void expandAndApplyMask(
 			final JavaSparkContext sc,
 			final String datasetToMaskN5Path,
 			final String datasetNameToMask,
@@ -219,7 +219,7 @@ public class SparkExpandMaskToCleanPredictions {
 				throw e;
 			}
 			
-			final RandomAccessibleInterval<UnsignedLongType> maskDataPreExpansion = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5MaskReader, datasetNameToUseAsMask)), paddedBlockMin, paddedBlockSize);
+			final RandomAccessibleInterval<T> maskDataPreExpansion = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>)N5Utils.open(n5MaskReader, datasetNameToUseAsMask)), paddedBlockMin, paddedBlockSize);
 			final RandomAccessibleInterval<NativeBoolType> maskDataPreExpansionConverted = Converters.convert(
 					maskDataPreExpansion,
 					(a, b) -> {

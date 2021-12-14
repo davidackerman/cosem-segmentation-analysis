@@ -79,6 +79,10 @@ public class SparkCalculateThicknessHistograms {
 
 	@Option(name = "--inputN5DatasetName", required = false, usage = "Input N5 dataset")
 	private String inputN5DatasetName = null;
+	
+	@Option(name = "--pixelResolution", required = false, usage = "Corrected pixel resolution in nm '2,2,2.62'")
+	private String pixelResolution = null;
+	
 
 	public Options(final String[] args) {
 	    final CmdLineParser parser = new CmdLineParser(this);
@@ -104,6 +108,10 @@ public class SparkCalculateThicknessHistograms {
 	    }
 	    return outputDirectory;
 	}
+	
+	public String getPixelResolution() {
+	    return pixelResolution;
+	}
 
     }
 
@@ -122,12 +130,16 @@ public class SparkCalculateThicknessHistograms {
      */
     @SuppressWarnings("unchecked")
     public static final <T extends IntegerType<T> & NativeType<T>> Map<Long,Long> calculateThicknessAtMedialSurface(
-	    final JavaSparkContext sc, final String n5Path, final String datasetName, 
+	    final JavaSparkContext sc, final String n5Path, final String datasetName, double [] adjustedPixelResolution, 
 	    final List<BlockInformation> blockInformationList) throws IOException {
 
 	// calculate distance from medial surface
 	// Parallelize analysis over blocks
-	double[] pixelResolution = IOHelper.getResolution(new N5FSReader(n5Path), datasetName);
+	
+	final double [] pixelResolution = (adjustedPixelResolution == null) ? IOHelper.getResolution(new N5FSReader(n5Path), datasetName) : adjustedPixelResolution;
+	
+	
+	//pixelResolution[0]=2; pixelResolution[1]=2; pixelResolution[2]=2;
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5Path, datasetName+"_distanceTransform", DataType.FLOAT32);
 	JavaRDD<Map<Long, Long>> javaRDDThicknessHistograms = rdd.map(blockInformation -> {
@@ -140,7 +152,7 @@ public class SparkCalculateThicknessHistograms {
 	    RandomAccess<T> medialSurfaceRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5Path, datasetName+"_medialSurface", offset, dimension);
 	    
 	    RandomAccessibleInterval<T> dataset = (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName);
-	    CorrectlyPaddedDistanceTransform cpdt = new CorrectlyPaddedDistanceTransform(dataset, offset, dimension);
+	    CorrectlyPaddedDistanceTransform cpdt = new CorrectlyPaddedDistanceTransform(dataset, offset, dimension, pixelResolution);
 	    IntervalView<FloatType> cpdtCropped = Views.offsetInterval(cpdt.correctlyPaddedDistanceTransform, cpdt.padding, dimension);
 	    RandomAccess<FloatType> cpdtCroppedRA = cpdtCropped.randomAccess();
 	    HashMap<Long, Long> thicknessHistogram = new HashMap<Long,Long>();
@@ -156,7 +168,7 @@ public class SparkCalculateThicknessHistograms {
 			    float radius = (float) Math.sqrt(radiusSquared);
 			    double thickness = radius * 2;// convert later			    
 			    
-			    Long thicknessBin = (long) Math.min(Math.floor(thickness * pixelResolution[0]/0.5), 199);
+			    Long thicknessBin = (long) Math.min(Math.floor(thickness/0.5), 199);
 			    thicknessHistogram.put(thicknessBin, thicknessHistogram.getOrDefault(thicknessBin, 0L) + 1L);
 		   
 			}
@@ -164,7 +176,7 @@ public class SparkCalculateThicknessHistograms {
 			cpdtCroppedRA.setPosition(pos);
 			float tempradiusSquared = cpdtCroppedRA.get().getRealFloat();
 			float tempradius = (float) Math.sqrt(tempradiusSquared);
-			cpdtCroppedRA.get().set((float) (tempradius* pixelResolution[0]));
+			cpdtCroppedRA.get().set((float) (tempradius));
 			//end remove
 
 		    }
@@ -209,7 +221,7 @@ public class SparkCalculateThicknessHistograms {
     }
 
 
-    public static void setupSparkAndCalculateThicknessHistograms(String inputN5Path, String inputN5DatasetName, String outputDirectory)
+    public static void setupSparkAndCalculateThicknessHistograms(String inputN5Path, String inputN5DatasetName, String outputDirectory, double [] pixelResolution)
 	    throws IOException {
 
 	final SparkConf conf = new SparkConf().setAppName("SparkCalculateThicknessHistograms");
@@ -219,7 +231,7 @@ public class SparkCalculateThicknessHistograms {
 		    organelle);
 
 	    JavaSparkContext sc = new JavaSparkContext(conf);
-	    Map<Long, Long> thicknessHistogram = calculateThicknessAtMedialSurface(sc, inputN5Path, organelle, blockInformationList);
+	    Map<Long, Long> thicknessHistogram = calculateThicknessAtMedialSurface(sc, inputN5Path, organelle, pixelResolution, blockInformationList);
 	    writeData(thicknessHistogram, outputDirectory, inputN5DatasetName);
 	    sc.close();
 	}
@@ -242,8 +254,14 @@ public class SparkCalculateThicknessHistograms {
 	String inputN5Path = options.getInputN5Path();
 	String inputN5DatasetName = options.getInputN5DatasetName();
 	String outputDirectory = options.getOutputDirectory();
+	
+	double [] pixelResolution = null;
+	if( options.getPixelResolution() != null ) {
+	    String[] pixelResolutionString = options.getPixelResolution().split(",");
+	    pixelResolution = new double [] {Double.valueOf(pixelResolutionString[0]),Double.valueOf(pixelResolutionString[1]),Double.valueOf(pixelResolutionString[2])};
+	}
 
-	setupSparkAndCalculateThicknessHistograms(inputN5Path, inputN5DatasetName, outputDirectory);
+	setupSparkAndCalculateThicknessHistograms(inputN5Path, inputN5DatasetName, outputDirectory, pixelResolution);
 
     }
 

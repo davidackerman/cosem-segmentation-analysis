@@ -1,6 +1,10 @@
 package org.janelia.cosem.util;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.commons.lang.ArrayUtils;
 
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.algorithm.morphology.distance.DistanceTransform;
@@ -13,6 +17,8 @@ import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
+import net.imglib2.algorithm.morphology.distance.EuclidianDistanceAnisotropic;
+
 
 /**
  * Class to help with getting correctly padded distance transform
@@ -20,6 +26,17 @@ import net.imglib2.view.Views;
 public class CorrectlyPaddedDistanceTransform {
 	public long[] padding, paddedOffset, paddedDimension;
 	public NativeImg<FloatType, ?> correctlyPaddedDistanceTransform;
+
+	
+	public <T extends IntegerType<T>> CorrectlyPaddedDistanceTransform(RandomAccessibleInterval<T> source,
+		long[] offset, long[] dimension, double [] pixelResolution) {
+	    this(source, offset, dimension, 1, pixelResolution);
+	}
+	
+	public <T extends IntegerType<T>> CorrectlyPaddedDistanceTransform(RandomAccessibleInterval<T> source,
+		long[] offset, long[] dimension, int threshold) {
+	    this(source, offset, dimension, threshold, new double [] {1.0, 1.0, 1.0});
+	}
 
 	/**
 	 * Get the correctly padded distance transform
@@ -31,7 +48,7 @@ public class CorrectlyPaddedDistanceTransform {
 	 */
 	public <T extends IntegerType<T>> CorrectlyPaddedDistanceTransform(RandomAccessibleInterval<T> source,
 			long[] offset, long[] dimension) {
-		this(source, offset, dimension, 1);
+		this(source, offset, dimension, 1, new double [] {1.0, 1.0, 1.0});
 	}
 
 	/**
@@ -44,7 +61,15 @@ public class CorrectlyPaddedDistanceTransform {
 	 * @param threshold Threshold for binarization
 	 */
 	public <T extends IntegerType<T>> CorrectlyPaddedDistanceTransform(RandomAccessibleInterval<T> source,
-			long[] offset, long[] dimension, int threshold) {
+			long[] offset, long[] dimension, int threshold, double [] pixelResolution) {
+	    	
+
+    	    double [] weights = {0,0,0};
+    	    for(int i=0; i<3; i++) {
+    		weights[i] = Math.pow(pixelResolution[i],2);
+    	    }
+	    
+    	    double smallestWeight = Collections.min(Arrays.asList(ArrayUtils.toObject(weights)));
 
 		long[] sourceDimensions = { 0, 0, 0 };
 		source.dimensions(sourceDimensions);
@@ -80,7 +105,7 @@ public class CorrectlyPaddedDistanceTransform {
 			/* make distance transform */
 			correctlyPaddedDistanceTransform = ArrayImgs.floats(paddedDimension);
 
-			DistanceTransform.binaryTransform(sourceBlock, correctlyPaddedDistanceTransform, DISTANCE_TYPE.EUCLIDIAN);
+			DistanceTransform.binaryTransform(sourceBlock, correctlyPaddedDistanceTransform, DISTANCE_TYPE.EUCLIDIAN, weights[0], weights[1], weights[2]);
 
 			Arrays.setAll(minInside, i -> padding[i]);
 			Arrays.setAll(dimensionsInside, i -> dimension[i]);
@@ -93,7 +118,7 @@ public class CorrectlyPaddedDistanceTransform {
 
 				final IntervalView<FloatType> topSlice = Views.hyperSlice(insideBlock, d, 1);
 				for (final FloatType t : topSlice)
-					if (t.get() >= squareMaxPadding - shellPadding) { 
+					if (t.get()/smallestWeight >= squareMaxPadding - shellPadding) { 
 					    // Subtract one from squareMaxPadding because we
 					    // want to ensure that if we have a shell in
 					    // later calculations for finding surface
@@ -104,7 +129,7 @@ public class CorrectlyPaddedDistanceTransform {
 
 				final IntervalView<FloatType> botSlice = Views.hyperSlice(insideBlock, d, insideBlock.max(d));
 				for (final FloatType t : botSlice)
-					if (t.get() >= squareMaxPadding - shellPadding) {
+					if (t.get()/smallestWeight >= squareMaxPadding - shellPadding) {
 						paddingIsTooSmall = true;
 						continue A;
 					}

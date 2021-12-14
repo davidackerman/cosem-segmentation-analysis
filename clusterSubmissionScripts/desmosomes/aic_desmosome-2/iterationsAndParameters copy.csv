@@ -1,0 +1,7 @@
+ecs,800000,0,
+er,800000,20E6,--skipSmoothing
+mito,875000,20E6,
+MVB,800000,5E5,
+nucleus,925000,1.7E9,
+plasma_membrane,800000,1.7E9,--skipSmoothing
+vesicle,800000,3E5,--skipSmoothing

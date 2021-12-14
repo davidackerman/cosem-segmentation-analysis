@@ -1,6 +1,8 @@
 package org.janelia.cosem.util;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -132,7 +134,11 @@ public class ProcessingHelper {
 	}
 	
 	public static <T extends NumericType<T>> IntervalView< T > getOffsetIntervalExtendZeroRAI(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {
-		final N5Reader n5Reader = new N5FSReader(n5Path);
+	    final N5FSReader n5Reader = new N5FSReader(n5Path);
+    	    if( Files.exists(Paths.get(n5Path+"/"+dataset + "/s0")) ){ //in case is multiscale
+    		dataset = dataset+"/s0";
+    	    }
+    		
 		return Views.offsetInterval(
 				Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5Reader, dataset)),
 				offset, dimension);
@@ -165,5 +171,13 @@ public class ProcessingHelper {
 	public static <T extends NumericType<T>> Cursor< T >  getOffsetIntervalExtendZeroC(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {
 		IntervalView< T > rai = getOffsetIntervalExtendZeroRAI(n5Path, dataset, offset, dimension);
 		return rai.cursor();
+	}
+	
+	public static DatasetAttributes getDatasetAttributes(N5FSReader n5Reader, String dataset) throws IOException {
+	    if( Files.exists(Paths.get(n5Reader.getBasePath()+"/"+dataset + "/s0")) ){ //in case is multiscale
+    		dataset = dataset+"/s0";
+    	    }
+	    
+	    return n5Reader.getDatasetAttributes(dataset);
 	}
 }

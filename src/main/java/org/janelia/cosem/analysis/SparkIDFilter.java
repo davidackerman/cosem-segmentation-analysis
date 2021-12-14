@@ -95,6 +95,9 @@ public class SparkIDFilter {
 		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Minimum volume cutoff (nm^3)")
 		private double minimumVolumeCutoff = 20E6;
 		
+		@Option(name = "--relabelWithID", required = false, usage = "Optional ID to relabel everything as")
+		private Integer relabelWithID = null;
+		
 		public Options(final String[] args) {
 
 			final CmdLineParser parser = new CmdLineParser(this);
@@ -145,6 +148,10 @@ public class SparkIDFilter {
 		
 		public double getMinimumVolumeCutoff() {
 			return minimumVolumeCutoff;
+		}
+		
+		public Integer getRelabelWithID() {
+			return relabelWithID;
 		}
 
 	}
@@ -213,6 +220,7 @@ public class SparkIDFilter {
 			final Set<Long> idsToKeep,
 			final Set<Long> idsToDelete,
 			final Map<Long,Long> adjacentIDtoParentID,
+			final Integer relabelWithID,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
 		final N5Reader n5Reader = new N5FSReader(n5Path);
@@ -243,11 +251,13 @@ public class SparkIDFilter {
 				long currentID = sourceCursor.get().getIntegerLong();
 				if(currentID>0) {
 					if(onlyKeepSubsetOfIDs) {
-						if(adjacentIDtoParentID.containsKey(currentID)) sourceCursor.get().setInteger(adjacentIDtoParentID.get(currentID));
+						if(adjacentIDtoParentID.containsKey(currentID)) sourceCursor.get().setInteger(relabelWithID == null ? adjacentIDtoParentID.get(currentID) : relabelWithID);
 						else if(! idsToKeep.contains(currentID)) sourceCursor.get().setZero();
+						else if(relabelWithID != null) sourceCursor.get().setInteger(relabelWithID);
 					}
 					else { //then keeping everything except those slated to delete
 						if(idsToDelete.contains(currentID)) sourceCursor.get().setZero();
+						else if(relabelWithID != null) sourceCursor.get().setInteger(relabelWithID);
 					}
 				}
 			}
@@ -324,6 +334,10 @@ public class SparkIDFilter {
 			}
 		}
 		
+		if(!options.getIDsToKeep().isEmpty())
+			for(String s :  Arrays.asList(options.getIDsToKeep().split(","))) idsToKeep.add(Long.valueOf(s));
+
+		Integer relabelWithID = options.getRelabelWithID();
 		filterIDs(
 				sc,
 				inputN5Path,
@@ -333,6 +347,7 @@ public class SparkIDFilter {
 				idsToKeep,
 				idsToDelete,
 				adjacentIDtoParentID,
+				relabelWithID,
 				blockInformationList);
 		
 		/*if(options.getDoVolumeFilter()) {

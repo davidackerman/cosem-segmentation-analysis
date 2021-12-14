@@ -1,0 +1,4 @@
+er,925000,20E6,--skipSmoothing
+mito,800000,20E6,
+nucleus,825000,1.7E9,
+plasma_membrane,800000,1.7E9,--skipSmoothing

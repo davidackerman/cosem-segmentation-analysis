@@ -4,14 +4,31 @@ OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analy
 JAR=$OWN_DIR/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar
 
 FLINTSTONE=/groups/flyTEM/flyTEM/render/spark/spark-janelia/flintstone.sh
-export LSF_PROJECT=cosem
 CLASS=org.janelia.cosem.analysis.SparkCalculateThicknessHistograms
 
-ARGV="--inputN5Path '/groups/cosem/cosem/ackermand/testTrainingThickness.n5' \
---inputN5DatasetName 'all_2' "
-
-N_NODES=5
+export LSF_PROJECT=cosem
+N_NODES=1
 export N_CORES_DRIVER=1
 export RUNTIME="48:00"
 export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
-TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
+export SPARK_JANELIA_ARGS='--common_job_args "-o /dev/null"'
+
+cell=${PWD##*/}
+
+for cropIndex in {1,4,3,6,7,8,9,13,14,15,16,18,19,23,28}; do
+
+    inputPath="/groups/cosem/cosem/ackermand/trainingCropMembraneThickness/${cell}.n5/crop${cropIndex}/"
+
+    #for membraneID in {2,3,6,8,10,12,14,16,18,20,22}; do
+        membraneID=16_18_20_22
+        ARGV="--inputN5Path '${inputPath}' \
+        --outputDirectory '/groups/cosem/cosem/ackermand/trainingCropMembraneThickness/analysis/${cell}/crop${cropIndex}/' \
+        --inputN5DatasetName 'all_${membraneID}' \
+        --pixelResolution '2.0,2.0,2.62' "
+
+        TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
+        sleep 2
+    done
+
+done
+

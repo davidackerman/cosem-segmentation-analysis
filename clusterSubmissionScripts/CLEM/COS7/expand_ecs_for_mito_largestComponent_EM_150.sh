@@ -1,21 +1,27 @@
 #!/bin/bash
+  
+OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analysis'
+JAR=$OWN_DIR/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar
 
-OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/hot-knife' #`dirname "${BASH_SOURCE[0]}"`
-ABS_DIR=`readlink -f "$OWN_DIR"`
-
-FLINTSTONE=$OWN_DIR/flintstone/flintstone-lsd.sh
-JAR=$OWN_DIR/target/hot-knife-0.0.4-SNAPSHOT.jar
-CLASS=org.janelia.saalfeldlab.hotknife.SparkExpandMaskToCleanPredictions
+FLINTSTONE=/groups/flyTEM/flyTEM/render/spark/spark-janelia/flintstone.sh
+CLASS=org.janelia.cosem.analysis.SparkExpandMaskToCleanPredictions
 N_NODES=10
 
-ARGV="--datasetToMaskN5Path '/groups/cosem/cosem/ackermand/CLEM/imageData/masking.n5' \
+export LSF_PROJECT=cosem
+export N_CORES_DRIVER=1
+export RUNTIME="48:00"
+export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
+#export N_EXECUTORS_PER_NODE=2
+
+
+ARGV="--datasetToMaskN5Path '/groups/cosem/cosem/ackermand/CLEM/COS7/imageData/COS7_Cell11.n5' \
 --datasetNameToMask 'mito' \
 --onlyKeepLargestComponent \
+--datasetToUseAsMaskN5Path '/groups/cosem/cosem/ackermand/CLEM/COS7/imageData/COS7_Cell11.n5' \
+--datasetNameToUseAsMask 'ecs_largestComponent' \
 --skipConnectedComponents \
---datasetToUseAsMaskN5Path '/groups/cosem/cosem/ackermand/CLEM/imageData/masking.n5' \
---datasetNameToUseAsMask 'ecs' \
 --expansion 150 \
---outputN5Path '/groups/cosem/cosem/ackermand/CLEM/imageData/masking.n5'"
+--outputN5Path '/groups/cosem/cosem/ackermand/CLEM/COS7/imageData/COS7_Cell11.n5'"
 
 export MEMORY_PER_NODE=500
 export RUNTIME="48:00"

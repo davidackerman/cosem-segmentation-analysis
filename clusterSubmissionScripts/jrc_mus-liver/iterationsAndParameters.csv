@@ -1,0 +1,4 @@
+ecs,liver_best_setup04_many-1_90000.n5,1.7E9,--skipSmoothing
+plasma_membrane,liver_best_setup04_many-1_90000.n5,2E7,--skipSmoothing
+er,liver_latest_setup04_many_masked_4-1_90000.n5,2E7,--skipSmoothing
+nucleus,liver_latest_setup04_many-1_110000.n5,1.7E9,

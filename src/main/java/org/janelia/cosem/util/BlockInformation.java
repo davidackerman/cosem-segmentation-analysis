@@ -2,6 +2,8 @@ package org.janelia.cosem.util;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,10 +75,14 @@ public class BlockInformation implements Serializable {
 		this.thinningLocations = new boolean[3][3][3];
 	}
 	
-	public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
-			final String inputN5DatasetName) throws IOException {
+	public static List<BlockInformation> buildBlockInformationList(String inputN5Path,
+			 String inputN5DatasetName) throws IOException {
 		//Get block attributes
 		N5Reader n5Reader = new N5FSReader(inputN5Path);
+		if( Files.exists(Paths.get(inputN5Path+"/"+inputN5DatasetName + "/s0")) ){ //in case is multiscale
+		    inputN5DatasetName = inputN5DatasetName+"/s0";
+		}
+	    	   
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] outputDimensions = attributes.getDimensions();

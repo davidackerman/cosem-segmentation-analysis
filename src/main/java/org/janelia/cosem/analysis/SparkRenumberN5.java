@@ -50,7 +50,7 @@ import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedLongType;
 
 /**
- * Connected components for an entire n5 volume
+ * Renumber n5 file using csv file containing renumbering
  *
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */

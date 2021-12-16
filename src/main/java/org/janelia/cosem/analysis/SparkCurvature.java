@@ -59,6 +59,7 @@ import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.ExtendedRandomAccessibleInterval;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
@@ -156,7 +157,7 @@ public class SparkCurvature {
 		//Create output
 		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);	
 		String finalOutputDatasetName = calculateSphereness ? outputDatasetName+"_sphereness" : outputDatasetName+"_sheetness";
-		n5Writer.createDataset(finalOutputDatasetName, dimensions, blockSize, DataType.FLOAT64, new GzipCompression());
+		n5Writer.createDataset(finalOutputDatasetName, dimensions, blockSize, DataType.FLOAT32, new GzipCompression());
 		n5Writer.setAttribute(finalOutputDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
 		
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
@@ -207,24 +208,24 @@ public class SparkCurvature {
 			}
 			
 			//Create sheetness output
-			IntervalView<DoubleType> curvatureOutput = null;			
+			IntervalView<FloatType> curvatureOutput = null;			
 			
 			//Perform curvature analysis
 			if(!medialSurfaceCoordinatesToSheetnessInformationMap.isEmpty()) {
 				getCurvature(sourceCropped, medialSurfaceCoordinatesToSheetnessInformationMap, new long[]{padding,padding,padding}, dimension, pixelResolution, sigmaSeries, calculateSphereness); 
-				curvatureOutput = Views.offsetInterval(ArrayImgs.doubles(paddedDimension),new long[]{0,0,0}, paddedDimension);
-				RandomAccess<DoubleType> sheetnessRA = curvatureOutput.randomAccess();
+				curvatureOutput = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
+				RandomAccess<FloatType> sheetnessRA = curvatureOutput.randomAccess();
 				
 				for(Entry<List<Long>, SheetnessInformation> entry : medialSurfaceCoordinatesToSheetnessInformationMap.entrySet()) {
 					long[] pos = new long[] {entry.getKey().get(0), entry.getKey().get(1), entry.getKey().get(2)};
 					sheetnessRA.setPosition(pos);
-					sheetnessRA.get().set(entry.getValue().curvature);
+					sheetnessRA.get().set((float) entry.getValue().curvature);
 				}
 				
 				curvatureOutput = Views.offsetInterval(curvatureOutput,new long[]{padding,padding,padding}, dimension);
 			}
 			else{
-				curvatureOutput = Views.offsetInterval(ArrayImgs.doubles(dimension),new long[]{0,0,0}, dimension);
+				curvatureOutput = Views.offsetInterval(ArrayImgs.floats(dimension),new long[]{0,0,0}, dimension);
 			}
 			
 			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);

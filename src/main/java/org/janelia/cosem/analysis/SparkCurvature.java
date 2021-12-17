@@ -58,7 +58,6 @@ import net.imglib2.converter.Converters;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.IntegerType;
-import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.ExtendedRandomAccessibleInterval;
 import net.imglib2.view.IntervalView;
@@ -182,12 +181,12 @@ public class SparkCurvature {
 
 			//Binarize segmentation data and read in medial surface info
 			RandomAccessibleInterval<T> source = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName);
-			final RandomAccessibleInterval<DoubleType> sourceConverted =
+			final RandomAccessibleInterval<FloatType> sourceConverted =
 					Converters.convert(
 							source,
 							(a, b) -> { b.set(a.getRealDouble()>0 ? 1 : 0);},
-							new DoubleType());
-			final IntervalView<DoubleType> sourceCropped = Views.offsetInterval(Views.extendZero(sourceConverted), paddedOffset, paddedDimension);
+							new FloatType());
+			final IntervalView<FloatType> sourceCropped = Views.offsetInterval(Views.extendZero(sourceConverted), paddedOffset, paddedDimension);
 
 			
 			RandomAccessibleInterval<T> medialSurface = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName+"_medialSurface");	
@@ -294,7 +293,7 @@ public class SparkCurvature {
 	/**
 	 * Get sheetness of image by calculating it at medial surface, store it in medialSurfaceCoordinatesToSheetnessInformationMap
 	 * 
-	 * @param converted											 	Segmented image binarized as {@link DoubleType}, used to store curvature
+	 * @param converted											 	Segmented image binarized as {@link FloatType}, used to store curvature
 	 * @param medialSurfaceCoordinatesToSheetnessInformationMap		Map of medial surface coordinates to corresponding sheetness information
 	 * @param padding												Padding for image
 	 * @param dimension												Dimension of image
@@ -302,16 +301,16 @@ public class SparkCurvature {
 	 * @param scaleSteps											Number of scale steps
 	 * @param calculateSphereness									If true, do sphereness; else do sheetness
 	 */
-	public static void getCurvature(RandomAccessibleInterval<DoubleType> converted, HashMap<List<Long>, SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap, 
+	public static void getCurvature(RandomAccessibleInterval<FloatType> converted, HashMap<List<Long>, SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap, 
 			long[] padding, long[] dimension, double[] resolution,double[][][] sigmaSeries, boolean calculateSphereness) {
 		
 		//Define scale steps and octave steps
 		long[] paddedDimension = new long[] {converted.dimension(0), converted.dimension(1), converted.dimension(2)};
 		
 		//Create required images for calculating sheetness
-		ExtendedRandomAccessibleInterval<DoubleType, RandomAccessibleInterval<DoubleType>> source = Views.extendZero(converted);
-		IntervalView<DoubleType> smoothed = Views.offsetInterval(ArrayImgs.doubles(paddedDimension),new long[]{0,0,0}, paddedDimension);
-		final RandomAccessible<DoubleType>[] gradients = new RandomAccessible[converted.numDimensions()];
+		ExtendedRandomAccessibleInterval<FloatType, RandomAccessibleInterval<FloatType>> source = Views.extendZero(converted);
+		IntervalView<FloatType> smoothed = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
+		final RandomAccessible<FloatType>[] gradients = new RandomAccessible[converted.numDimensions()];
 			
 		//Loop over scale steps to calculate smoothed image
 		//final double[][][] sigmaSeries = sigmaSeries(resolution, octaveSteps, scaleSteps);
@@ -319,7 +318,7 @@ public class SparkCurvature {
 		
 		double currentActualSigma = 0;
 		for (int i = 0; i < scaleSteps; ++i) {
-			final SimpleGaussRA<DoubleType> op = new SimpleGaussRA<>(sigmaSeries[2][i]);
+			final SimpleGaussRA<FloatType> op = new SimpleGaussRA<>(sigmaSeries[2][i]);
 			op.setInput(source);
 			op.run(smoothed);
 			source = Views.extendZero(smoothed);
@@ -327,12 +326,12 @@ public class SparkCurvature {
 			currentActualSigma = Math.sqrt(currentActualSigma*currentActualSigma+sigmaSeries[0][i][0]*sigmaSeries[0][i][0]);
 			/* gradients */
 			for (int d = 0; d < converted.numDimensions(); ++d) {
-				final GradientCenter<DoubleType> gradientOp =
+				final GradientCenter<FloatType> gradientOp =
 						new GradientCenter<>(
 								Views.extendBorder(smoothed),
 								d,
 								currentActualSigma);
-				final IntervalView<DoubleType> gradient = Views.offsetInterval(ArrayImgs.doubles(paddedDimension),new long[]{0,0,0}, paddedDimension);
+				final IntervalView<FloatType> gradient = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
 				gradientOp.accept(gradient);
 				gradients[d] = Views.extendZero(gradient);
 			}
@@ -348,7 +347,7 @@ public class SparkCurvature {
 	/**
 	 * Update sheetness - if necessary - for a given scale step in medialSurfaceCoordinatesToSheetnessInformationMap
 	 * 
-	 * @param converted												Segmented image binarized as {@link DoubleType}, used to store curvature
+	 * @param converted												Segmented image binarized as {@link FloatType}, used to store curvature
 	 * @param gradients												Gradients for current scale step
 	 * @param medialSurfaceCoordinatesToSheetnessInformationMap		Map of medial surface coordinates to corresponding sheetness information
 	 * @param sigma													Current sigma (of sigmaSeries) to calculate sheetness over
@@ -357,8 +356,8 @@ public class SparkCurvature {
 	 * @param scaleStep												Scale step, for keeping track of progress
 	 * @param calculateSphereness									If true, do sphereness; else do sheetness
 	 */
-	private static void updateCurvature(final RandomAccessibleInterval<DoubleType> converted, 
-			final RandomAccessible<DoubleType>[] gradients, 
+	private static void updateCurvature(final RandomAccessibleInterval<FloatType> converted, 
+			final RandomAccessible<FloatType>[] gradients, 
 			final HashMap<List<Long>, SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap, 
 			final double currentActualSigma, long[] padding, long[] dimension, int scaleStep, boolean calculateSphereness) {
 
@@ -371,8 +370,8 @@ public class SparkCurvature {
 			norms[d] = currentActualSigma / 2.0;//sigmas[d] / 2.0;
 		}
 		
-		RandomAccess<DoubleType> gradientA_RA = null;
-		RandomAccess<DoubleType> gradientB_RA = null;
+		RandomAccess<FloatType> gradientA_RA = null;
+		RandomAccess<FloatType> gradientB_RA = null;
 		for (int d = 0; d < n; ++d) {
 			final long[] offset = new long[n];
 			offset[d] = -1;

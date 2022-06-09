@@ -18,6 +18,7 @@ package org.janelia.cosem.analysis;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -28,6 +29,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
+import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
@@ -39,6 +41,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import net.imglib2.Cursor;
+import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.IntegerType;
@@ -137,43 +140,77 @@ public class SparkLabelPredictionWithConnectedComponents {
 			final String connectedComponentsDatasetName, final String outputN5Path, double thresholdIntensityCutoff, List<BlockInformation> blockInformationList) throws IOException {
 					
 		// Create output dataset
+		final N5Reader n5Reader = new N5FSReader(connectedComponentsN5Path);
+		DatasetAttributes attributes = n5Reader.getDatasetAttributes(connectedComponentsDatasetName);
 		final String outputN5DatasetName = predictionDatasetName+"_labeledWith_"+connectedComponentsDatasetName;
-		ProcessingHelper.createDatasetUsingTemplateDataset(connectedComponentsN5Path, connectedComponentsDatasetName, predictionN5Path, outputN5DatasetName);
+		DataType dataType = attributes.getDataType();
+		ProcessingHelper.createDatasetUsingTemplateDataset(predictionN5Path, predictionDatasetName, outputN5Path, outputN5DatasetName, dataType);
 		
 		// Do the labeling, parallelized over blocks
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		rdd.foreach(currentBlockInformation -> {
 			// Get information for reading in/writing current block
 			long[][] gridBlock = currentBlockInformation.gridBlock;
-			long[] offset = gridBlock[0];
-			long[] dimension = gridBlock[1];
 			
 			final N5Reader predictionN5ReaderLocal = new N5FSReader(predictionN5Path);
+			final N5Reader connectedComponentsReaderLocal = new N5FSReader(connectedComponentsN5Path);
+
+			final double [] predictionPixelResolution = IOHelper.getResolution(predictionN5ReaderLocal, predictionDatasetName);
+			final double [] connectedComponentsPixelResolution = IOHelper.getResolution(connectedComponentsReaderLocal, connectedComponentsDatasetName);
+
+			//for now, assume connected components pixel resolution is a multiple of prediction pixel resolution
+			final int scale = (int) (connectedComponentsPixelResolution[0] / predictionPixelResolution[0]);
+			
+			long[] predictionOffset = gridBlock[0];
+			long[] predictionDimension = gridBlock[1];
+			long[] connectedComponentsOffset = gridBlock[0].clone();
+			long[] connectedComponentsDimension = gridBlock[1].clone();
+			for(int i=0; i<3; i++) {
+			    connectedComponentsOffset[i] = (int)(connectedComponentsOffset[i]*1.0/scale);
+			    connectedComponentsDimension[i] = (int)(connectedComponentsDimension[i]*1.0/scale);
+			}
+			
+			RandomAccessibleInterval<T> output = ProcessingHelper.getZerosIntegerImageRAI(predictionDimension, dataType);
+			RandomAccess<T> outputRA = output.randomAccess();
+			
 			IntervalView<UnsignedByteType> prediction = Views.offsetInterval(Views.extendZero(
 					(RandomAccessibleInterval<UnsignedByteType>) N5Utils.open(predictionN5ReaderLocal, predictionDatasetName)
-					),offset, dimension);
+					),predictionOffset, predictionDimension);
 			
 					
-			final N5Reader connectedComponentsReaderLocal = new N5FSReader(connectedComponentsN5Path);
 			IntervalView<T> connectedComponents = Views.offsetInterval(Views.extendZero(
 						(RandomAccessibleInterval<T>) N5Utils.open(connectedComponentsReaderLocal, connectedComponentsDatasetName)
-						),offset, dimension);
+						),connectedComponentsOffset, connectedComponentsDimension);
 								
-			Cursor<UnsignedByteType> predictionCursor = prediction.cursor();
-			Cursor<T> connectedComponentsCursor = connectedComponents.cursor();
-			while(predictionCursor.hasNext()) {
-				predictionCursor.next();
-				connectedComponentsCursor.next();
-				long objectID = connectedComponentsCursor.get().getIntegerLong();
-				int predictionValue = predictionCursor.get().get();
-				if(objectID>0 && predictionValue<thresholdIntensityCutoff) {
-						connectedComponentsCursor.get().setInteger(0);
+			RandomAccess<UnsignedByteType> predictionRA = prediction.randomAccess();
+			RandomAccess<T> connectedComponentsRA = connectedComponents.randomAccess();
+			long [] previousConnectedComponentsPos = {-1,-1,-1};
+			for(int x=0; x<predictionDimension[0]; x++) {
+			    for(int y=0; y<predictionDimension[1]; y++) {
+				for(int z=0; z<predictionDimension[2]; z++) {
+				    long[] predictionPos = new long[] { x, y, z };
+				    long[] connectedComponentsPos = new long[] { (long)(x*1.0/scale), (long)(y*1.0/scale), (long)(z*1.0/scale)};
+				    if(connectedComponentsPos[0]!=previousConnectedComponentsPos[0] || connectedComponentsPos[1]!=previousConnectedComponentsPos[1] || connectedComponentsPos[2]!=previousConnectedComponentsPos[2]) {
+					    connectedComponentsRA.setPosition(connectedComponentsPos);
+					    previousConnectedComponentsPos = connectedComponentsPos;
+				    }
+					//    System.out.println(Arrays.toString(previousConnectedComponentsPos)+ Arrays.toString(predictionPos));
+
+				    predictionRA.setPosition(predictionPos);
+				    
+				    long objectID = connectedComponentsRA.get().getIntegerLong();
+				    int predictionValue = predictionRA.get().get();
+				    if(objectID>0 && predictionValue>=thresholdIntensityCutoff) {
+					outputRA.setPosition(predictionPos);
+					outputRA.get().setInteger(objectID);
+				    }
 				}
+			    }
 			}
 			
 			// Write out output to temporary n5 stack
 			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
-			N5Utils.saveBlock(connectedComponents, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
+			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 		});
 	}

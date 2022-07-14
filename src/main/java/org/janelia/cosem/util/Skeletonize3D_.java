@@ -194,13 +194,10 @@ public class Skeletonize3D_ implements PlugInFilter
 			for (ArrayList<int[]> subvolumeSimpleBorderPoints : simpleBorderPoints) {
 				for (int[] index : subvolumeSimpleBorderPoints) {			
 					final byte[] neighborhood = getNeighborhood(outputImageRandomAccess, index[0], index[1], index[2]);
-					final byte[] neighborhoodIfRemoved = neighborhood;
-					neighborhoodIfRemoved[13]=0;
 					//Do actual rechecking, ie, making sure that if point is removed, everything is still satisfied
 					// Check if border points is simple
-					if (isSimplePoint(neighborhood) && isEulerInvariant( neighborhood, eulerLUT ) &&
-							isSimplePoint(neighborhoodIfRemoved) && isEulerInvariant( neighborhoodIfRemoved, eulerLUT ))//condition 4 in paper
-							{						// we can delete the current point
+					if (isSimplePoint(neighborhood) && isEulerInvariant( neighborhood, eulerLUT ) )//condition 4 in paper
+					{						// we can delete the current point
 						setPixel(outputImageRandomAccess, index[0], index[1], index[2], (byte) 0);
 						needToThinAgain |= true;
 					}
@@ -310,12 +307,9 @@ public class Skeletonize3D_ implements PlugInFilter
 			for (ArrayList<int[]> subvolumeSimpleBorderPoints : simpleBorderPoints) {
 				for (int[] index : subvolumeSimpleBorderPoints) {			
 					final byte[] neighborhood = getNeighborhood(outputImageRandomAccess, index[0], index[1], index[2]);
-					final byte[] neighborhoodIfRemoved = neighborhood;
-					neighborhoodIfRemoved[13]=0;
 					// Check if border points is simple
-					if (isSimplePoint(neighborhood) && isEulerInvariant( neighborhood, eulerLUT ) &&
-							isSimplePoint(neighborhoodIfRemoved) && isEulerInvariant( neighborhoodIfRemoved, eulerLUT ))//condition 4 in paper
-							{						// we can delete the current point
+					if (isSimplePoint(neighborhood) && isEulerInvariant( neighborhood, eulerLUT ))//condition 4 in paper
+					{						// we can delete the current point
 						setPixel(outputImageRandomAccess, index[0], index[1], index[2], (byte) 0);
 						needToThinAgain |= true;
 					}

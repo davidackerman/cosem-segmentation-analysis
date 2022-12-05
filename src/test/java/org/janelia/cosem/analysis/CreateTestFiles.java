@@ -194,12 +194,12 @@ public class CreateTestFiles {
 	SparkCalculateSheetnessOfContactSites.setupSparkAndCalculateSheetnessOfContactSites(TestHelper.testN5Locations, "shapes_cc_sheetnessVolumeAveraged", TestHelper.testFileLocations, "shapes_cc_to_planes_cc_cc");
    
 	//general information output
-	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true);
+	SparkGeneralCosemObjectInformation.setupSparkAndRunGeneralCosemObjectInformation("shapes_cc", TestHelper.testN5Locations, "shapes_cc_to_planes_cc", TestHelper.testFileLocations, true, true, false);
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_standard", 0, 1, false, false);
 
 	//renumbering files
 	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc",null);
-	SparkRenumberN5.setupSparkAndRenumberN5(TestHelper.testFileLocations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc");
+	SparkRenumberN5.setupSparkAndRenumberN5(TestHelper.testFileLocations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc",false);
 	SparkGetRenumbering.setupSparkAndGetRenumbering(TestHelper.testN5Locations, TestHelper.testN5Locations,TestHelper.testFileLocations, "shapes_cc_medialSurface","shapes_cc_renumbered");
 
     }

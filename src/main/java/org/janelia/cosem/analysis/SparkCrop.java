@@ -164,13 +164,13 @@ public class SparkCrop {
 		final DatasetAttributes attributesToCropTo = n5ToCropToReader.getDatasetAttributes(datasetNameToCropTo);
 		final long[] dimensions = attributesToCropTo.getDimensions();
 		final int[] blockSize = attributesToCropTo.getBlockSize();		
-		final int[] offsetsToCropTo = IOHelper.getOffset(n5ToCropToReader, datasetNameToCropTo);		
+		final long[] offsetsToCropTo = IOHelper.getOffset(n5ToCropToReader, datasetNameToCropTo);		
 		crop(sc,  offsetsToCropTo, dimensions, blockSize, inputN5Path, inputN5DatasetName, outputN5DatasetName, outputN5Path, convertTo8Bit);
 	}
 	
 	public static final <T extends NumericType<T>> void crop(
 			final JavaSparkContext sc,
-			final int[] offsetsToCropTo,
+			final long[] offsetsToCropTo,
 			final long[] dimensions,
 			final int[] blockSize,
 			final String inputN5Path,
@@ -272,7 +272,7 @@ public class SparkCrop {
 
 
 				crop(sc, 
-					new int [] {Integer.valueOf(offsetsToCropTo[0]),Integer.valueOf(offsetsToCropTo[1]),Integer.valueOf(offsetsToCropTo[2])},
+					new long [] {Integer.valueOf(offsetsToCropTo[0]),Integer.valueOf(offsetsToCropTo[1]),Integer.valueOf(offsetsToCropTo[2])},
 					new long [] {Long.valueOf(dimensions[0]),Long.valueOf(dimensions[1]),Long.valueOf(dimensions[2])},
 					new int [] {Integer.valueOf(blockSize[0]),Integer.valueOf(blockSize[1]),Integer.valueOf(blockSize[2])},
 					options.getInputN5Path(),

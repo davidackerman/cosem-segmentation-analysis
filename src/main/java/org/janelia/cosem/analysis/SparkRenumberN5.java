@@ -69,9 +69,12 @@ public class SparkRenumberN5 {
 
 	@Option(name = "--inputDirectory", required = true, usage = "directory containing renumbering data")
 	private String inputDirectory = null;
-	
+
 	@Option(name = "--renumberingCSV", required = false, usage = "renumbering data")
 	private String renumberingCSV = null;
+
+	@Option(name = "--useExistingChunks", required = false, usage = "use only present chunks as opposed to entire range of dataset")
+	private boolean useExistingChunks = false;
 
 	public Options(final String[] args) {
 
@@ -104,11 +107,15 @@ public class SparkRenumberN5 {
 	public String getOutputN5Path() {
 	    return outputN5Path;
 	}
-	
+
 	public String getRenumberingCSV() {
 	    if (renumberingCSV == null)
-		return getInputN5DatasetName()+"_renumbered";
+		return getInputN5DatasetName() + "_renumbered";
 	    return renumberingCSV;
+	}
+
+	public boolean getUseExistingChunks() {
+	    return useExistingChunks;
 	}
 
     }
@@ -124,26 +131,28 @@ public class SparkRenumberN5 {
 	    return DataType.UINT64;
 	}
     }
+
     public static final <T extends IntegerType<T> & NativeType<T>> void renumberN5(final JavaSparkContext sc,
 	    final String n5Path, final String datasetName, final String n5OutputPath,
-	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList) throws IOException
-    {
+	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList)
+	    throws IOException {
 	renumberN5(sc, n5Path, datasetName, n5OutputPath, broadcastedRenumberingMap, blockInformationList, false);
     }
-    
+
     public static final <T extends IntegerType<T> & NativeType<T>> void renumberN5(final JavaSparkContext sc,
 	    final String n5Path, final String datasetName, final String n5OutputPath,
-	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList, boolean addSuffixRegardless)
-	    throws IOException {
+	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap, final List<BlockInformation> blockInformationList,
+	    boolean addSuffixRegardless) throws IOException {
 
 	Long numberOfObjects = (long) (broadcastedRenumberingMap.value().size() + 1);// add 1 for zero
 	DataType dataType = getDataType(numberOfObjects);
 	String tempDatasetName = datasetName;
-	if(n5OutputPath==n5Path || addSuffixRegardless) {
-	    tempDatasetName+="_renumbered";
+	if (n5OutputPath == n5Path || addSuffixRegardless) {
+	    tempDatasetName += "_renumbered";
 	}
 	final String outputDatasetName = tempDatasetName;
-	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, outputDatasetName, dataType);
+	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, outputDatasetName,
+		dataType);
 
 	/*
 	 * grid block size for parallelization to minimize double loading of blocks
@@ -154,8 +163,8 @@ public class SparkRenumberN5 {
 	    long[] offset = gridBlock[0];
 	    long[] dimension = gridBlock[1];
 
-	    Cursor<T> sourceCursor = ProcessingHelper.getOffsetIntervalExtendZeroC(n5Path, datasetName,
-		    offset, dimension);
+	    Cursor<T> sourceCursor = ProcessingHelper.getOffsetIntervalExtendZeroC(n5Path, datasetName, offset,
+		    dimension);
 	    RandomAccessibleInterval<T> output = ProcessingHelper.getZerosIntegerImageRAI(dimension, dataType);
 	    RandomAccess<T> outputRA = output.randomAccess();
 
@@ -175,7 +184,7 @@ public class SparkRenumberN5 {
 	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
 	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 	});
-	
+
     }
 
     public static final Map<Long, Long> readInData(String inputDirectory, String renumberingName)
@@ -184,8 +193,7 @@ public class SparkRenumberN5 {
 
 	boolean firstLine = true;
 	String row;
-	BufferedReader csvReader = new BufferedReader(
-		new FileReader(inputDirectory + "/" + renumberingName));
+	BufferedReader csvReader = new BufferedReader(new FileReader(inputDirectory + "/" + renumberingName));
 	while ((row = csvReader.readLine()) != null) {
 	    String[] data = row.split(",");
 	    if (!firstLine) {
@@ -198,13 +206,16 @@ public class SparkRenumberN5 {
 	csvReader.close();
 	return renumberingMap;
     }
+
     public static void setupSparkAndRenumberN5(String inputDirectory, String inputN5DatasetName, String inputN5Path,
-	    String outputN5Path, String renumberingCSV) throws Exception{
-	setupSparkAndRenumberN5(inputDirectory, inputN5DatasetName, inputN5Path, outputN5Path, renumberingCSV, false);
+	    String outputN5Path, String renumberingCSV, boolean useExistingChunks) throws Exception {
+	setupSparkAndRenumberN5(inputDirectory, inputN5DatasetName, inputN5Path, outputN5Path, renumberingCSV, false, useExistingChunks);
     }
+
     public static void setupSparkAndRenumberN5(String inputDirectory, String inputN5DatasetName, String inputN5Path,
-	    String outputN5Path, String renumberingCSV, boolean addSuffixRegardless) throws Exception {
-	final SparkConf conf = new SparkConf().setAppName("SparkRenumberN5");	
+	    String outputN5Path, String renumberingCSV, boolean addSuffixRegardless, boolean useExistingChunks)
+	    throws Exception {
+	final SparkConf conf = new SparkConf().setAppName("SparkRenumberN5");
 
 	// Get all organelles
 	String[] organelles = { "" };
@@ -219,41 +230,43 @@ public class SparkRenumberN5 {
 		}
 	    });
 	}
-	
-	String [] renumberingCSVList = renumberingCSV.split(",");
-	if(renumberingCSVList.length != organelles.length) {
-	    throw new Exception("Organelle list and renumbering csv list are of different lengths"); 
+
+	String[] renumberingCSVList = renumberingCSV.split(",");
+	if (renumberingCSVList.length != organelles.length) {
+	    throw new Exception("Organelle list and renumbering csv list are of different lengths");
 	}
-	for(int i=0; i < organelles.length; i++) {
-	    Map<Long, Long> renumberingMap = readInData(inputDirectory, renumberingCSVList[i]+"_renumbering.csv");
+	for (int i = 0; i < organelles.length; i++) {
+	    Map<Long, Long> renumberingMap = readInData(inputDirectory, renumberingCSVList[i] + "_renumbering.csv");
 
 	    // Create block information list
-	    List<BlockInformation> blockInformationList = BlockInformation
-		    .buildBlockInformationList(inputN5Path, organelles[i]);
+	    List<BlockInformation> blockInformationList = null;
+	    if (useExistingChunks) {
+		blockInformationList = BlockInformation.buildBlockInformationListFromExistingChunks(inputN5Path,
+			organelles[i]);
+
+	    }
+	    else{
+		blockInformationList = BlockInformation.buildBlockInformationList(inputN5Path, organelles[i]);
+	    }
 	    JavaSparkContext sc = new JavaSparkContext(conf);
 	    Broadcast<Map<Long, Long>> broadcastedRenumberingMap = sc.broadcast(renumberingMap);
 
-	    renumberN5(sc, inputN5Path, organelles[i], outputN5Path,
-		    broadcastedRenumberingMap, blockInformationList, addSuffixRegardless);
-	
+	    renumberN5(sc, inputN5Path, organelles[i], outputN5Path, broadcastedRenumberingMap, blockInformationList,
+		    addSuffixRegardless);
+
 	    sc.close();
 	}
     }
-    
+
     public static final void main(final String... args) throws Exception {
 
 	final Options options = new Options(args);
 
 	if (!options.parsedSuccessfully)
 	    return;
-	setupSparkAndRenumberN5(options.getInputDirectory(),
-	options.getInputN5DatasetName(),
-	options.getInputN5Path(),
-	options.getOutputN5Path(),
-	options.getRenumberingCSV());
-	
+	setupSparkAndRenumberN5(options.getInputDirectory(), options.getInputN5DatasetName(), options.getInputN5Path(),
+		options.getOutputN5Path(), options.getRenumberingCSV(), options.getUseExistingChunks());
 
     }
 
-    
 }

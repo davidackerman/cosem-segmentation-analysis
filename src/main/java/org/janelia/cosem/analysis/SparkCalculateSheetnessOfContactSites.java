@@ -238,7 +238,7 @@ public class SparkCalculateSheetnessOfContactSites {
 
 					if (sheetnessMeasureBin > 0 && contactSiteID > 0) {// Then is on surface and contact site
 						int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(volumeAveragedSheetnessRA,
-								paddedOffset, dimensions);
+								paddedOffset, dimensions, false);
 						if (faces > 0) {
 							sheetnessAndSurfaceAreaHistogram.put(sheetnessMeasureBin,
 									sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessMeasureBin, 0.0)

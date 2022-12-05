@@ -58,11 +58,11 @@ import net.imglib2.view.Views;
 
 
 /**
- * Expand microtbule center axis predictions to create tubes
+ * Expand filaments center axis predictions to create tubes
  *
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
-public class SparkExpandMicrotubules {
+public class SparkExpandFilaments {
 	@SuppressWarnings("serial")
 	public static class Options extends AbstractOptions implements Serializable {
 
@@ -125,7 +125,7 @@ public class SparkExpandMicrotubules {
 	}
 
 	/**
-	  * Expand microtubules to create a tube with a set inner radius and outer radius
+	  * Expand filaments to create a cylinder or tube with a set inner radius and outer radius
 	  *
 	  *
 	  * @param sc					Spark context
@@ -138,7 +138,7 @@ public class SparkExpandMicrotubules {
 	  * @param blockInformationList	Block information list
 	  * @throws IOException
 	  */
-	public static final <T extends IntegerType<T>>  void expandMicrotubules(final JavaSparkContext sc, final String n5Path,
+	public static final <T extends IntegerType<T>>  void expandFilaments(final JavaSparkContext sc, final String n5Path,
 			final String inputDatasetName, final String n5OutputPath, final String outputDatasetName, final double innerRadiusInNm, final double outerRadiusInNm,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
@@ -171,14 +171,14 @@ public class SparkExpandMicrotubules {
 			final N5Reader n5BlockReader = new N5FSReader(n5Path);
 			
 
-			RandomAccessibleInterval<T> microtubuleCenterline = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName)),paddedOffset, paddedDimension);	
-			RandomAccess<T> microtubuleCenterlineRA = microtubuleCenterline.randomAccess();
-			IntervalView<UnsignedLongType> expandedMicrotubule = Views.offsetInterval(ArrayImgs.unsignedLongs(paddedDimension),new long[]{0,0,0}, paddedDimension);
-			RandomAccess<UnsignedLongType> expandedMicrotubuleRA = expandedMicrotubule.randomAccess();
+			RandomAccessibleInterval<T> filamentCenterline = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName)),paddedOffset, paddedDimension);	
+			RandomAccess<T> filamentCenterlineRA = filamentCenterline.randomAccess();
+			IntervalView<UnsignedLongType> expandedFilament = Views.offsetInterval(ArrayImgs.unsignedLongs(paddedDimension),new long[]{0,0,0}, paddedDimension);
+			RandomAccess<UnsignedLongType> expandedFilamentRA = expandedFilament.randomAccess();
 			
 			
 			//Create maps of object ID to centerline voxels as well as map of object id to extended endpoint voxels.
-			//Extended endpoint voxels are the hypothetical extension of the microtubule
+			//Extended endpoint voxels are the hypothetical extension of the filament
 			Map<Long, List<List<Integer>>> idToCenterlineVoxels = new HashMap<Long,List<List<Integer>>>();
 			Map<Long, List<int[]>> idToExtendedEndpointVoxels = new HashMap<Long,List<int[]>>();
 			
@@ -186,14 +186,14 @@ public class SparkExpandMicrotubules {
 				for(int y=1; y<paddedDimension[1]-1; y++) {
 					for(int z=1; z<paddedDimension[2]-1; z++) {
 						int pos[] = new int[] {x,y,z};
-						microtubuleCenterlineRA.setPosition(pos);
-						long objectID = microtubuleCenterlineRA.get().getIntegerLong();
-						if(objectID>0) {//then it is on microtubule center axis
+						filamentCenterlineRA.setPosition(pos);
+						long objectID = filamentCenterlineRA.get().getIntegerLong();
+						if(objectID>0) {//then it is on filament center axis
 							List<List<Integer>> currentCenterlineVoxels = idToCenterlineVoxels.getOrDefault(objectID, new ArrayList<List<Integer>>());
 							currentCenterlineVoxels.add(Arrays.asList(pos[0],pos[1],pos[2]));
 							idToCenterlineVoxels.put(objectID, currentCenterlineVoxels);
 							
-							int [] extendedEndpointVoxel = getExtendedEndpointVoxel(microtubuleCenterlineRA, objectID, pos);
+							int [] extendedEndpointVoxel = getExtendedEndpointVoxel(filamentCenterlineRA, objectID, pos);
 							if(extendedEndpointVoxel!=null) {
 								List<int[]> currentExtendedEndpointVoxels = idToExtendedEndpointVoxels.getOrDefault(objectID, new ArrayList<int[]>());
 								currentExtendedEndpointVoxels.add(extendedEndpointVoxel);
@@ -206,10 +206,10 @@ public class SparkExpandMicrotubules {
 			}
 			
 			//Do the expansion to create the tube
-			expandMicrotubules(expandedMicrotubuleRA, idToCenterlineVoxels,idToExtendedEndpointVoxels,innerRadiusInVoxels,outerRadiusInVoxels, padding, paddedDimension);
+			expandFilaments(expandedFilamentRA, idToCenterlineVoxels,idToExtendedEndpointVoxels,innerRadiusInVoxels,outerRadiusInVoxels, padding, paddedDimension);
 			
 			//Write it out
-			IntervalView<UnsignedLongType> output = Views.offsetInterval(expandedMicrotubule,new long[]{padding,padding,padding}, dimension);
+			IntervalView<UnsignedLongType> output = Views.offsetInterval(expandedFilament,new long[]{padding,padding,padding}, dimension);
 			final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
 			N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 						
@@ -218,9 +218,9 @@ public class SparkExpandMicrotubules {
 	}
 	
 	/**
-	 * Expand the microtubule enter axis.
+	 * Expand the filament enter axis.
 	 * 
-	 * @param expandedMicrotubulesRA		The output image
+	 * @param expandedFilamentsRA		The output image
 	 * @param idToCenterlineVoxels			Map of object id to centerline voxel
 	 * @param idToExtendedEndpointVoxels	Map of object id to extended endpoint voxel
 	 * @param innerRadiusInVoxels			Inner radius of tube in voxels
@@ -228,7 +228,7 @@ public class SparkExpandMicrotubules {
 	 * @param padding
 	 * @param dimension
 	 */
-	private static void expandMicrotubules(RandomAccess<UnsignedLongType> expandedMicrotubulesRA, Map<Long, List<List<Integer>>> idToCenterlineVoxels,
+	private static void expandFilaments(RandomAccess<UnsignedLongType> expandedFilamentsRA, Map<Long, List<List<Integer>>> idToCenterlineVoxels,
 			Map<Long, List<int[]>> idToExtendedEndpointVoxels, double innerRadiusInVoxels, double outerRadiusInVoxels, long padding, long [] dimension) {
 			int outerRadiusInVoxelsCeiling = (int) Math.ceil(outerRadiusInVoxels);
 
@@ -308,8 +308,8 @@ public class SparkExpandMicrotubules {
 					if(x>=0 && x<dimension[0] && 
 							y>=0 && y<dimension[1] &&
 							z>=0 && z<dimension[2]) {
-						expandedMicrotubulesRA.setPosition(new int[] {x, y,z});
-						expandedMicrotubulesRA.get().set(objectID);
+						expandedFilamentsRA.setPosition(new int[] {x, y,z});
+						expandedFilamentsRA.get().set(objectID);
 					}
 				}		
 			}
@@ -405,7 +405,7 @@ public class SparkExpandMicrotubules {
 	}
 
 	/**
-	 * Expand microtubules to create tubes from center axis
+	 * Expand filaments to create tubes from center axis
 	 * 
 	 * @param args
 	 * @throws IOException
@@ -419,7 +419,7 @@ public class SparkExpandMicrotubules {
 		if (!options.parsedSuccessfully)
 			return;
 
-		final SparkConf conf = new SparkConf().setAppName("SparkEpandMicrotubules");
+		final SparkConf conf = new SparkConf().setAppName("SparkEpandFilaments");
 
 		// Get all organelles
 		String[] organelles = { "" };
@@ -441,7 +441,7 @@ public class SparkExpandMicrotubules {
 			// Create block information list
 			List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(options.getInputN5Path(), currentOrganelle);
 			JavaSparkContext sc = new JavaSparkContext(conf);
-			expandMicrotubules(sc, options.getInputN5Path(),
+			expandFilaments(sc, options.getInputN5Path(),
 					currentOrganelle, options.getOutputN5Path(), currentOrganelle+"_expanded",
 					options.getInnerRadiusInNm(), options.getOuterRadiusInNm(), blockInformationList);
 			sc.close();

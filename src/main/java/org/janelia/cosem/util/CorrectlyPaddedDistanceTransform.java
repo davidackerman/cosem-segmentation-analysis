@@ -123,6 +123,7 @@ public class CorrectlyPaddedDistanceTransform {
 					    // want to ensure that if we have a shell in
 					    // later calculations for finding surface
 					    // points, we can access valid points
+					    // TODO: Remove shell padding?
 						paddingIsTooSmall = true;
 						continue A;
 					}

@@ -111,7 +111,11 @@
 			<artifactId>ejml-all</artifactId>
 			<version>0.37.1</version>
 		</dependency>
-		
+		<dependency>
+		    <groupId>com.github.ijpb</groupId>
+		    <artifactId>MorphoLibJ</artifactId>
+		    <version>v1.4.0</version>
+		</dependency>
 		<dependency>
 			<groupId>it.unimi.dsi</groupId>
 			<artifactId>fastutil</artifactId>

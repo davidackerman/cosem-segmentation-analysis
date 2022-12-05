@@ -148,7 +148,7 @@ public class SparkCreateValidationDatasets {
 			final N5Writer n5WriterRawPredictions = new N5FSWriter(n5OutputRawPredictions);
 			double[] pixelResolutionTraining = null;
 			int[] blockSizeTraining = null;
-			int[] offsetTraining =null;
+			long[] offsetTraining =null;
 			long[] dimensionsTraining=null;
 			for( Entry<String, List<Integer>> entry : organelleToIDs.entrySet()) {
 				final String organelle = entry.getKey();

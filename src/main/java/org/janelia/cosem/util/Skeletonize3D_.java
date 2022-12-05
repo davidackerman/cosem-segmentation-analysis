@@ -304,12 +304,14 @@ public class Skeletonize3D_ implements PlugInFilter
 
 			// sequential re-checking to preserve connectivity when
 			// deleting in a parallel way
+			// Page 469, paragraph 3 "sequential rechecking"
 			for (ArrayList<int[]> subvolumeSimpleBorderPoints : simpleBorderPoints) {
 				for (int[] index : subvolumeSimpleBorderPoints) {			
 					final byte[] neighborhood = getNeighborhood(outputImageRandomAccess, index[0], index[1], index[2]);
 					// Check if border points is simple
 					if (isSimplePoint(neighborhood) && isEulerInvariant( neighborhood, eulerLUT ))//condition 4 in paper
-					{						// we can delete the current point
+					{// Page 469, paragraph 3 "sequential rechecking"	
+					    // we can delete the current point
 						setPixel(outputImageRandomAccess, index[0], index[1], index[2], (byte) 0);
 						needToThinAgain |= true;
 					}

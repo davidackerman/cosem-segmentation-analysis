@@ -77,10 +77,10 @@ public class IOHelper {
 		return new double[] { 4, 4, 4 };// Default to 4 nm
 	}
 
-	public static int[] getOffset(final N5Reader n5, final String dataset) throws IOException {
-		int[] offset = n5.getAttribute(dataset, "offset", int[].class);
+	public static long[] getOffset(final N5Reader n5, final String dataset) throws IOException {
+		long[] offset = n5.getAttribute(dataset, "offset", long[].class);
 		if (offset == null) {
-			offset = new int[] { 0, 0, 0 };
+			offset = new long[] { 0, 0, 0 };
 		}
 		return offset;
 	}

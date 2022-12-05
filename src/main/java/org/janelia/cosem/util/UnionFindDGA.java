@@ -116,19 +116,20 @@ public class UnionFindDGA {
 	}
 
 	public static void main(final String[] args) {
-		long[][] initialGlobalIDtoGlobalID = { {1,1}, { 1, 3 }, {3,3}, { 3, 2 },{2,20}, {14,14}, { 7, 6 }, { 5, 6 }, { 10, 5 }, {3,14}, { 9, 7 }, { 4, 7 },
-				{ 7, 8 }, { 8, 10 }, { 8, 12 }, { 8, 15 }, { 16, 17 },{14,1}};
+		//long[][] initialGlobalIDtoGlobalID = { {1,1}, { 1, 3 }, {3,3}, { 3, 2 },{2,20}, {14,14}, { 7, 6 }, { 5, 6 }, { 10, 5 }, {3,14}, { 9, 7 }, { 4, 7 },
+	//			{ 7, 8 }, { 8, 10 }, { 8, 12 }, { 8, 15 }, { 16, 17 },{14,1}};
 		//long [][] initialGlobalIDtoGlobalID = {{1,2},{2,3},{3,4},{5,3},{6,7},{8,6},{6,7},{6,1}};
-		/*long[][] initialGlobalIDtoGlobalID = new long [1000][2];
-		for(int i=0; i< 1000;i++) {
-			initialGlobalIDtoGlobalID[i][0]=(long)(Math.random()*200);
-			initialGlobalIDtoGlobalID[i][1]=(long)(Math.random()*200);
-		}*/
+		long[][] initialGlobalIDtoGlobalID = new long [10000000][2];
+		for(int i=0; i< 10000000;i++) {
+			initialGlobalIDtoGlobalID[i][0]=(long)(Math.random()*1000000);
+			initialGlobalIDtoGlobalID[i][1]=(long)(Math.random()*1000000);
+		}
 		long startTime = System.currentTimeMillis();
 		UnionFindDGA testing = new UnionFindDGA(initialGlobalIDtoGlobalID);
-		for (Map.Entry<Long, Long> entry : testing.globalIDtoRootID.entrySet()) {
+		/*for (Map.Entry<Long, Long> entry : testing.globalIDtoRootID.entrySet()) {
 			System.out.println("final " + entry.getKey() + ":" + entry.getValue().toString());
 		}
+		*/
 
 		testing.renumberRoots();
 		for (Map.Entry<Long, Long> entry : testing.globalIDtoRootID.entrySet()) {

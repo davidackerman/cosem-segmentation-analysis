@@ -17,10 +17,10 @@ cell=${PWD##*/}
 
 	ARGV="\
 	--outputN5DatasetSuffix _cropped \
-	--inputN5DatasetName 50_0.8_smoothed_renumbered_filled_renumbered \
-	--inputN5Path /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
+	--inputN5DatasetName 25_0.975_smoothed_renumbered_filled_renumbered \
+	--inputN5Path /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
 	--offsetsToCropTo 0,0,0 \
-	--dimensions 6372,6364,4466 \
+	--dimensions 10000,10000,10000,
 	--blockSize 140,140,140
 	"
 	TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV

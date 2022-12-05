@@ -18,8 +18,8 @@ do
 
 ARGV="\
 --inputN5DatasetName ${mito_name}_smoothed \
---inputN5Path /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
---outputDirectory /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5
+--inputN5Path /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
+--outputDirectory /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5
 "
 
 TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV

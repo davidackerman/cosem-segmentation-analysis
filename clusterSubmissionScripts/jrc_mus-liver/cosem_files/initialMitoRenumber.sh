@@ -4,7 +4,7 @@ OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analy
 JAR=$OWN_DIR/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar
 
 FLINTSTONE=/groups/flyTEM/flyTEM/render/spark/spark-janelia/flintstone.sh
-CLASS=org.janelia.cosem.analysis.SparkGetRenumbering
+CLASS=org.janelia.cosem.analysis.SparkRenumberN5
 N_NODES=10
 
 export LSF_PROJECT=cellmap
@@ -18,8 +18,9 @@ do
 
 ARGV="\
 --inputN5DatasetName ${mito_name}_smoothed \
---inputN5Path /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
---outputDirectory /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5
+--inputN5Path /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
+--inputDirectory /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
+--renumberingCSV ${mito_name}_smoothed
 "
 
 TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV

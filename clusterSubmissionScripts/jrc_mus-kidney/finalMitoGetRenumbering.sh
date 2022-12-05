@@ -13,16 +13,12 @@ export RUNTIME="48:00"
 export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
 
 cell=${PWD##*/}
-for mito_name in {25_0.5,25_0.75,25_0.9,25_0.975,50_0.8,50_0.85,50_0.9,50_0.95,75_0.4,75_0.5,75_0.6}
-do
 
 ARGV="\
---inputN5DatasetName ${mito_name}_smoothed \
---inputN5Path /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
---outputDirectory /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5
+--inputN5DatasetName '75_0.6_smoothed_renumbered_filled_volumeFiltered' \
+--inputN5Path '/nrs/cellmap/ackermand/cellmap/jrc_mus-kidney.n5/watershedAndAgglomeration/mito.n5' \
+--outputDirectory '/nrs/cellmap/ackermand/cellmap/jrc_mus-kidney.n5/watershedAndAgglomeration/mito.n5' \
 "
 
 TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
-sleep 1
-done
 

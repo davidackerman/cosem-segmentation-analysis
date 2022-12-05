@@ -4,7 +4,7 @@ OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analy
 JAR=$OWN_DIR/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar
 
 FLINTSTONE=/groups/flyTEM/flyTEM/render/spark/spark-janelia/flintstone.sh
-CLASS=org.janelia.cosem.analysis.SparkCrop
+CLASS=org.janelia.cosem.analysis.SparkGetRenumbering
 N_NODES=10
 
 export LSF_PROJECT=cellmap
@@ -15,14 +15,11 @@ export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
 
 cell=${PWD##*/}
 
+
 	ARGV="\
-	--outputN5DatasetSuffix _cropped \
-	--inputN5DatasetName 50_0.8_smoothed_renumbered_filled_renumbered \
-	--inputN5Path /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
-	--offsetsToCropTo 0,0,0 \
-	--dimensions 6372,6364,4466 \
-	--blockSize 140,140,140
+	--inputN5DatasetName cell_seg \
+	--outputDirectory /groups/cellmap/cellmap/ackermand/cosem/tmp/ \
+	--inputN5Path /nrs/cellmap/bennettd/s3/janelia-cosem-datasets/jrc_ctl-id8-3/jrc_ctl-id8-3.n5/labels/ariadne/ \
 	"
 	TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
 	sleep 1
-

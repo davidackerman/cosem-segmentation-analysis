@@ -15,11 +15,10 @@ export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
 cell=${PWD##*/}
 
 ARGV="\
---inputN5DatasetName 25_0.975_smoothed_renumbered_filled \
---inputN5Path /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
---outputDirectory /groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5
+--inputN5DatasetName 50_0.8_smoothed_renumbered_filled \
+--inputN5Path /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5 \
+--outputDirectory /groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5
 "
 
 TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
-sleep 1
 

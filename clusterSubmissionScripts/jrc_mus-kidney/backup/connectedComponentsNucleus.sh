@@ -1,0 +1,41 @@
+#!/bin/bash
+
+OWN_DIR='/groups/scicompsoft/home/ackermand/Programming/cosem-segmentation-analysis'
+JAR=$OWN_DIR/target/cosem-segmentation-analysis-0.0.1-SNAPSHOT.jar
+
+FLINTSTONE=/groups/flyTEM/flyTEM/render/spark/spark-janelia/flintstone.sh
+CLASS=org.janelia.cosem.analysis.SparkConnectedComponents
+N_NODES=10
+
+export LSF_PROJECT=cellmap
+export N_CORES_DRIVER=1
+export RUNTIME="48:00"
+export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
+
+cell=${PWD##*/}
+
+trainingPath="${cell}/${cell}.n5/16nm/2022-05-15/0"
+inputN5Path="/nrs/cellmap/pattonw/predictions/$trainingPath"
+outputN5Path="/groups/cellmap/cellmap/ackermand/cellmap/withFullPaths/$trainingPath"
+
+dataset="nucleus"
+mkdir -p $outputN5Path
+ln -s $inputN5Path/$dataset $outputN5Path/$dataset
+
+outputN5DatasetSuffix="_cc"
+
+ARGV="\
+--inputN5DatasetName $dataset \
+--minimumVolumeCutoff 1.7E9 \
+--outputN5DatasetSuffix _cc \
+--inputN5Path $outputN5Path \
+--outputN5Path $outputN5Path \
+"
+
+TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
+sleep 1
+
+if [ -L /groups/cellmap/cellmap/ackermand/cellmap/${cell}.n5/$dataset ]; then
+	unlink /groups/cellmap/cellmap/ackermand/cellmap/${cell}.n5/$dataset
+fi
+ln -s $outputN5Path/${dataset}_cc /groups/cellmap/cellmap/ackermand/cellmap/${cell}.n5/$dataset

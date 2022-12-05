@@ -12,10 +12,10 @@ export N_CORES_DRIVER=1
 export RUNTIME="48:00"
 export JAVA_HOME="/usr/lib/jvm/java-1.8.0"
 
-INPUTN5PATH="/groups/cosem/cosem/ackermand/cosem/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5"
+INPUTN5PATH="/groups/cellmap/cellmap/ackermand/cellmap/jrc_mus-liver.n5/watershedAndAgglomeration/mito.n5"
 
 ARGV="\
---inputN5DatasetName '25_0.975_smoothed_renumbered' \
+--inputN5DatasetName '50_0.8_smoothed_renumbered' \
 --minimumVolumeCutoff 20E6 \
 --outputN5DatasetSuffix '_filled' \
 --inputN5Path '$INPUTN5PATH' \
@@ -23,3 +23,4 @@ ARGV="\
 
 export RUNTIME="48:00"
 TERMINATE=1 $FLINTSTONE $N_NODES $JAR $CLASS $ARGV
+

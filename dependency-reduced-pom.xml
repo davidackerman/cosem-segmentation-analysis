@@ -33,6 +33,9 @@
                 <transformer>
                   <mainClass>org.janelia.cosem.analysis.SparkConnectedComponents</mainClass>
                 </transformer>
+                <transformer>
+                  <resource>META-INF/json/org.janelia.saalfeldlab.n5.Compression$CompressionType</resource>
+                </transformer>
               </transformers>
             </configuration>
           </execution>

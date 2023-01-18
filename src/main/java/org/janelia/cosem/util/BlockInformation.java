@@ -32,6 +32,8 @@ public class BlockInformation implements Serializable {
     public boolean needToThinAgainCurrent;
     public boolean isIndependent;
     public boolean areObjectsTouching;
+    public boolean canBeFilled;
+   
 
     public Map<Long, Long> edgeComponentIDtoVolumeMap;
     public Map<Long, Long> currentContactingPairEdgeComponentIDtoVolumeMap;
@@ -58,7 +60,7 @@ public class BlockInformation implements Serializable {
 	this.selfContainedMaxVolumeOrganelles = new HashSet<Long>();
 	this.allRootIDs = new HashSet<Long>();
 	this.currentContactingPairEdgeComponentIDtoVolumeMap = new HashMap<Long, Long>();
-
+	this.canBeFilled = false;
     }
 
     public BlockInformation(long[][] gridBlock, long[][] paddedGridBlock, int[][] padding,

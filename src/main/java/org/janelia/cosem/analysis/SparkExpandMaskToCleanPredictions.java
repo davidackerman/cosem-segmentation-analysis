@@ -72,7 +72,7 @@ public class SparkExpandMaskToCleanPredictions {
 		@Option(name = "--outputN5Path", required = true, usage = "Output N5 path")
 		private String outputN5Path = null;
 
-		@Option(name = "--datasetNameToMask", required = false, usage = "Dataset name to mask")
+		@Option(name = "--datasetNameToMask", required = true, usage = "Dataset name to mask")
 		private String datasetNameToMask = null;
 		
 		@Option(name = "--datasetNameToUseAsMask", required = false, usage = "Dataset name to use as mask")

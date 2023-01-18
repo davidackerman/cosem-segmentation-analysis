@@ -23,6 +23,7 @@ import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.NumericType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
@@ -164,6 +165,11 @@ public class ProcessingHelper {
 		    return (IntervalView<T>) Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
 		}
 		return null;
+	}
+	
+	public static IntervalView< NativeBoolType > getFalsesBoolImageRAI(long [] dimension) {
+	    return (IntervalView<NativeBoolType>) Views.offsetInterval(ArrayImgs.booleans(dimension),new long[]{0,0,0}, dimension);
+		
 	}
 	
 	public static <T extends NumericType<T>> RandomAccess < T >  getOffsetIntervalExtendZeroRA(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {

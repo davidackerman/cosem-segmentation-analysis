@@ -497,7 +497,6 @@ public class SparkExpandDataset {
 			new long[] { expansionInVoxelsCeil, expansionInVoxelsCeil, expansionInVoxelsCeil }, dimension);
 	    RandomAccess<FloatType> distanceTransformRA = distanceTransform.randomAccess();
 	    
-	    RandomAccessibleInterval<NativeBoolType> result = Dilation.dilate(converted, strel, 1 );
 	    converted = null;
 
 	    if (useFixedValue) {

@@ -204,7 +204,7 @@ public class SparkTopologicalThinning {
 
 			}
 			final RandomAccessibleInterval<T> previousThinningResult = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, currentInputDatasetName);
-			IntervalView<T> thinningResultCropped = Views.offsetInterval(Views.extendZero(previousThinningResult), paddedOffset, paddedDimension);
+			IntervalView<T> thinningResultCropped = Views.offsetInterval(Views.extendMirrorDouble(previousThinningResult), paddedOffset, paddedDimension);
 
 			//IntervalView<UnsignedLongType> outputImage = Views.offsetInterval(Views.extendValue(previousThinningResult, new UnsignedLongType(0)), paddedOffset, paddedDimension);
 			//IntervalView<UnsignedLongType> outputImage = Views.offsetInterval(ArrayImgs.unsignedLongs(paddedDimension),new long[]{0,0,0}, paddedDimension);

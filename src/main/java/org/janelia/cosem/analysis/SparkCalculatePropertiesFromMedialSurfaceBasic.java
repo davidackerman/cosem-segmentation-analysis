@@ -69,7 +69,7 @@ import net.imglib2.view.Views;
  * 
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
-public class SparkCalculatePropertiesFromMedialSurface {
+public class SparkCalculatePropertiesFromMedialSurfaceBasic {
     @SuppressWarnings("serial")
     public static class Options extends AbstractOptions implements Serializable {
 
@@ -345,7 +345,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	      // Get corresponding medial surface and sheetness
 		Cursor<T> medialSurfaceCursor = ProcessingHelper.getOffsetIntervalExtendZeroC(n5Path,
 			datasetName + "_medialSurface", paddedOffset, paddedDimension);
-		RandomAccess<DoubleType> sheetnessRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5Path,
+		RandomAccess<FloatType> sheetnessRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5Path,
 			datasetName + "_sheetness", paddedOffset, paddedDimension);
 		RandomAccess<FloatType> distanceTransformRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(
 			n5OutputPath, datasetName + "_medialSurfaceDistanceTransform", paddedOffset, paddedDimension);
@@ -388,7 +388,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
      * @return Histogram maps class with sheetness histograms
      * @throws IOException
      */
- /*   @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")
     public static final HistogramMaps calculateSheetnessAndVolume(final JavaSparkContext sc, final String datasetName,
 	    final String n5OutputPath, final List<BlockInformation> blockInformationList) throws IOException {
 
@@ -430,7 +430,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 			    sheetnessAndVolumeHistogram.put(sheetnessMeasureBin,
 				    sheetnessAndVolumeHistogram.getOrDefault(sheetnessMeasureBin, 0.0) + voxelVolume);
 			    int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(sheetnessRA,
-				    paddedOffset, dimensions);
+				    paddedOffset, dimensions, true);
 			    if (faces > 0) {
 				sheetnessAndSurfaceAreaHistogram.put(sheetnessMeasureBin,
 					sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessMeasureBin, 0.0)
@@ -452,7 +452,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	return histogramMaps;
 
     }
-*/
+
     /**
      * Update sheetness sum and count images which are used to calculate the volume
      * averaged sheetness. The averaged sheetness is calculated by taking the radius
@@ -516,7 +516,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
      *                                       and thickness
      */
     private static <T extends IntegerType<T> & NativeType<T>> void  createSumAndCountsAndUpdateHistogram(Cursor<T> medialSurfaceCursor,
-	    RandomAccess<FloatType> distanceTransformRA, RandomAccess<DoubleType> sheetnessRA,
+	    RandomAccess<FloatType> distanceTransformRA, RandomAccess<FloatType> sheetnessRA,
 	    RandomAccess<FloatType> sheetnessSumRA, RandomAccess<UnsignedIntType> countsRA, double[] pixelResolution,
 	    long padding, long[] paddedDimension, Map<List<Integer>, Long> sheetnessAndThicknessHistogram) {
 	while (medialSurfaceCursor.hasNext()) {
@@ -661,7 +661,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    String outputN5Path, String outputDirectory, boolean calculateAreaAndVolumeFromExistingDataset)
 	    throws IOException {
 	
-	/*final SparkConf conf = new SparkConf().setAppName("SparkCalculatePropertiesOfMedialSurface");
+	final SparkConf conf = new SparkConf().setAppName("SparkCalculatePropertiesOfMedialSurface");
 
 	for (String organelle : inputN5DatasetName.split(",")) {
 	    List<BlockInformation> blockInformationList = BlockInformation.buildBlockInformationList(inputN5Path,
@@ -684,7 +684,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    }
 
 	    sc.close();
-	}*/
+	}
     }
 
     /**

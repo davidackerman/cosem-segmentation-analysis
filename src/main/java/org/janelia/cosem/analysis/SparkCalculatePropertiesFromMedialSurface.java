@@ -81,7 +81,7 @@ import inra.ijpb.binary.ChamferWeights3D;
  * 
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
-public class SparkCalculatePropertiesFromMedialSurface2 {
+public class SparkCalculatePropertiesFromMedialSurface {
     @SuppressWarnings("serial")
     public static class Options extends AbstractOptions implements Serializable {
 

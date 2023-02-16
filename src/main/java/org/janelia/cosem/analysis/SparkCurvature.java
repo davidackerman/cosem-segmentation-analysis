@@ -186,11 +186,11 @@ public class SparkCurvature {
 							source,
 							(a, b) -> { b.set(a.getRealDouble()>0 ? 1 : 0);},
 							new FloatType());
-			final IntervalView<FloatType> sourceCropped = Views.offsetInterval(Views.extendZero(sourceConverted), paddedOffset, paddedDimension);
+			final IntervalView<FloatType> sourceCropped = Views.offsetInterval(Views.extendMirrorDouble(sourceConverted), paddedOffset, paddedDimension);
 
 			
 			RandomAccessibleInterval<T> medialSurface = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName+"_medialSurface");	
-			final IntervalView<T> medialSurfaceCropped = Views.offsetInterval(Views.extendZero(medialSurface),paddedOffset, paddedDimension);
+			final IntervalView<T> medialSurfaceCropped = Views.offsetInterval(Views.extendMirrorDouble(medialSurface),paddedOffset, paddedDimension);
 			RandomAccess<T> medialSurfaceCroppedRA = medialSurfaceCropped.randomAccess();
 			
 			HashMap<List<Long>,SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap = new HashMap<List<Long>,SheetnessInformation>();
@@ -308,7 +308,7 @@ public class SparkCurvature {
 		long[] paddedDimension = new long[] {converted.dimension(0), converted.dimension(1), converted.dimension(2)};
 		
 		//Create required images for calculating sheetness
-		ExtendedRandomAccessibleInterval<FloatType, RandomAccessibleInterval<FloatType>> source = Views.extendZero(converted);
+		ExtendedRandomAccessibleInterval<FloatType, RandomAccessibleInterval<FloatType>> source = Views.extendMirrorDouble(converted);
 		IntervalView<FloatType> smoothed = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
 		final RandomAccessible<FloatType>[] gradients = new RandomAccessible[converted.numDimensions()];
 			
@@ -321,7 +321,7 @@ public class SparkCurvature {
 			final SimpleGaussRA<FloatType> op = new SimpleGaussRA<>(sigmaSeries[2][i]);
 			op.setInput(source);
 			op.run(smoothed);
-			source = Views.extendZero(smoothed);
+			source = Views.extendMirrorDouble(smoothed);
 			
 			currentActualSigma = Math.sqrt(currentActualSigma*currentActualSigma+sigmaSeries[0][i][0]*sigmaSeries[0][i][0]);
 			/* gradients */
@@ -333,7 +333,7 @@ public class SparkCurvature {
 								currentActualSigma);
 				final IntervalView<FloatType> gradient = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
 				gradientOp.accept(gradient);
-				gradients[d] = Views.extendZero(gradient);
+				gradients[d] = Views.extendMirrorDouble(gradient);
 			}
 			
 			//Update sheetness if necessary

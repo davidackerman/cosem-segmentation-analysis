@@ -18,6 +18,7 @@ package org.janelia.cosem.analysis;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -483,13 +484,14 @@ public class SparkGeneralCosemObjectInformation {
 	if (inputN5DatasetName != null) {
 	    organelles = inputN5DatasetName.split(",");
 	} else {
-	    /*
-	     * File file = new File(options.getInputN5Path()); organelles = file.list(new
-	     * FilenameFilter() {
-	     * 
-	     * @Override public boolean accept(File current, String name) { return new
-	     * File(current, name).isDirectory(); } });
-	     */
+	    
+	      File file = new File(inputN5Path); 
+	      organelles = file.list(new
+	      FilenameFilter() {
+	      
+	      @Override public boolean accept(File current, String name) { return new
+	      File(current, name).isDirectory(); } });
+	     
 	}
 
 	new File(outputDirectory + "/allCounts.csv").delete();

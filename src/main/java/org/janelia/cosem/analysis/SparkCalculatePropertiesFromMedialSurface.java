@@ -31,47 +31,38 @@ import java.util.concurrent.ExecutionException;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.janelia.cosem.analysis.SparkCalculatePropertiesFromMedialSurface.PlanarityCalculator.VoxelProperties;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.CorrectlyPaddedDistanceTransform;
 import org.janelia.cosem.util.CorrectlyPaddedGeodesicDistanceTransform;
-import org.janelia.cosem.util.GeodesicDistanceTransform3DFloat;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.GzipCompression;
 import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import ij.ImageJ;
-import ij.ImageStack;
 import net.imglib2.Cursor;
-import net.imglib2.Interval;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
-import net.imglib2.converter.Converters;
 import net.imglib2.img.Img;
-import net.imglib2.img.NativeImg;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.loops.LoopBuilder;
 import net.imglib2.type.NativeType;
-import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.IntegerType;
 import net.imglib2.type.numeric.integer.UnsignedByteType;
+import net.imglib2.type.numeric.integer.UnsignedLongType;
 import net.imglib2.type.numeric.integer.UnsignedIntType;
-import net.imglib2.type.numeric.real.DoubleType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
-import inra.ijpb.binary.ChamferWeights3D;
 
 /**
  * For a given
@@ -97,7 +88,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	@Option(name = "--outputN5Path", required = false, usage = "Output N5 path")
 	private String outputN5Path = null;
 
-	@Option(name = "--calculateAreaAndVolumeFromExistingDataset", required = false, usage = "Use existing volume averaged sheetness")
+	@Option(name = "--calculateAreaAndVolumeFromExistingDataset", required = false, usage = "Use existing volume averaged planarity")
 	private boolean calculateAreaAndVolumeFromExistingDataset = false;
 
 	public Options(final String[] args) {
@@ -138,38 +129,38 @@ public class SparkCalculatePropertiesFromMedialSurface {
     }
 
     /**
-     * Class to contain histograms as maps for sheetness, thickness, surface area
+     * Class to contain histograms as maps for planarity, thickness, surface area
      * and volume
      */
     public static class HistogramMaps implements Serializable {
 	private static final long serialVersionUID = 1L;
-	public Map<List<Integer>, Long> sheetnessAndThicknessHistogram;
-	public Map<Integer, Double> sheetnessAndSurfaceAreaHistogram;
-	public Map<Integer, Double> sheetnessAndVolumeHistogram;
+	public Map<List<Integer>, Long> planarityAndThicknessHistogram;
+	public Map<Integer, Double> planarityAndSurfaceAreaHistogram;
+	public Map<Integer, Double> planarityAndVolumeHistogram;
 
-	public HistogramMaps(Map<List<Integer>, Long> sheetnessAndThicknessHistogram,
-		Map<Integer, Double> sheetnessAndSurfaceAreaHistogram,
-		Map<Integer, Double> sheetnessAndVolumeHistogram) {
-	    this.sheetnessAndThicknessHistogram = sheetnessAndThicknessHistogram;
-	    this.sheetnessAndSurfaceAreaHistogram = sheetnessAndSurfaceAreaHistogram;
-	    this.sheetnessAndVolumeHistogram = sheetnessAndVolumeHistogram;
+	public HistogramMaps(Map<List<Integer>, Long> planarityAndThicknessHistogram,
+		Map<Integer, Double> planarityAndSurfaceAreaHistogram,
+		Map<Integer, Double> planarityAndVolumeHistogram) {
+	    this.planarityAndThicknessHistogram = planarityAndThicknessHistogram;
+	    this.planarityAndSurfaceAreaHistogram = planarityAndSurfaceAreaHistogram;
+	    this.planarityAndVolumeHistogram = planarityAndVolumeHistogram;
 	}
 
 	public void merge(HistogramMaps newHistogramMaps) {
 	    // merge holeIDtoObjectIDMap
-	    for (Entry<List<Integer>, Long> entry : newHistogramMaps.sheetnessAndThicknessHistogram.entrySet())
-		sheetnessAndThicknessHistogram.put(entry.getKey(),
-			sheetnessAndThicknessHistogram.getOrDefault(entry.getKey(), 0L) + entry.getValue());
+	    for (Entry<List<Integer>, Long> entry : newHistogramMaps.planarityAndThicknessHistogram.entrySet())
+		planarityAndThicknessHistogram.put(entry.getKey(),
+			planarityAndThicknessHistogram.getOrDefault(entry.getKey(), 0L) + entry.getValue());
 
 	    // merge holeIDtoVolumeMap
-	    for (Entry<Integer, Double> entry : newHistogramMaps.sheetnessAndSurfaceAreaHistogram.entrySet())
-		sheetnessAndSurfaceAreaHistogram.put(entry.getKey(),
-			sheetnessAndSurfaceAreaHistogram.getOrDefault(entry.getKey(), 0.0) + entry.getValue());
+	    for (Entry<Integer, Double> entry : newHistogramMaps.planarityAndSurfaceAreaHistogram.entrySet())
+		planarityAndSurfaceAreaHistogram.put(entry.getKey(),
+			planarityAndSurfaceAreaHistogram.getOrDefault(entry.getKey(), 0.0) + entry.getValue());
 
 	    // merge objectIDtoVolumeMap
-	    for (Entry<Integer, Double> entry : newHistogramMaps.sheetnessAndVolumeHistogram.entrySet())
-		sheetnessAndVolumeHistogram.put(entry.getKey(),
-			sheetnessAndVolumeHistogram.getOrDefault(entry.getKey(), 0.0) + entry.getValue());
+	    for (Entry<Integer, Double> entry : newHistogramMaps.planarityAndVolumeHistogram.entrySet())
+		planarityAndVolumeHistogram.put(entry.getKey(),
+			planarityAndVolumeHistogram.getOrDefault(entry.getKey(), 0.0) + entry.getValue());
 
 	}
 
@@ -180,10 +171,10 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	public class VoxelProperties {
 	    public List<List<Long>> nearestNeighbors;
 	    public float planaritySum=0;
-	    public int planarityCount=0;
+	    public long planarityCount=0;
 	    public float planarity=0;
 
-	    VoxelProperties(float planaritySum, int planarityCount){
+	    VoxelProperties(float planaritySum, long planarityCount){
 		this.planaritySum = planaritySum;
 		this.planarityCount = planarityCount;
 		this.planarity = planaritySum/planarityCount;
@@ -254,7 +245,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	private void updateVoxelProperties(long [] position) {
 	    float planaritySum = 0;
-	    int planarityCount = 0;
+	    long planarityCount = 0L;
 
 	    List<List<Long>> nearestNeighbors = this.getNearestNeighbors(position);
 
@@ -323,6 +314,16 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_planarity",
 		DataType.UINT8);
+	
+	/*
+	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_cpgdt",
+		DataType.FLOAT32);
+	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_count",
+		DataType.UINT64);	
+	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_sum",
+			DataType.FLOAT32);
+	*/
+	
 	// calculate distance from medial surface
 	// Parallelize analysis over blocks
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
@@ -353,16 +354,23 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    // planarity of whole object
 	    CorrectlyPaddedGeodesicDistanceTransform cpgdt = new CorrectlyPaddedGeodesicDistanceTransform(medialSurface, segmentation, offset, dimension, false);
 	    RandomAccess<FloatType> planarityRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5Path,
-		    datasetName + "_sheetness", cpgdt.paddedOffset, cpgdt.paddedDimension);
+		    datasetName + "_planarityAtMedialSurface", cpgdt.paddedOffset, cpgdt.paddedDimension);
 	    IntervalView<UnsignedByteType> outputPlanarity = Views.offsetInterval(ArrayImgs.unsignedBytes(dimension),new long[]{0,0,0}, dimension);
 	    RandomAccess<UnsignedByteType> outputPlanarityRA = outputPlanarity.randomAccess();
 	    RandomAccess<FloatType> cpgdtRA = cpgdt.correctlyPaddedGeodesicDistanceTransform.randomAccess();
 	    PlanarityCalculator planarityCalculator = new PlanarityCalculator(cpgdt.correctlyPaddedGeodesicDistanceTransform.randomAccess(), planarityRA, cpgdt.weights);
 
 	    // set up maps
-	    Map<List<Integer>, Long> sheetnessAndThicknessHistogram = new HashMap<List<Integer>, Long>();
-	    Map<Integer, Double> sheetnessAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
-	    Map<Integer, Double> sheetnessAndVolumeHistogram = new HashMap<Integer, Double>();
+	    Map<List<Integer>, Long> planarityAndThicknessHistogram = new HashMap<List<Integer>, Long>();
+	    Map<Integer, Double> planarityAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
+	    Map<Integer, Double> planarityAndVolumeHistogram = new HashMap<Integer, Double>();
+	    
+	    /*
+	    IntervalView<UnsignedLongType> outputCounts = Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
+	    IntervalView<FloatType> outputPlanaritySum = Views.offsetInterval(ArrayImgs.floats(dimension),new long[]{0,0,0}, dimension);
+	    RandomAccess<UnsignedLongType> outputCountsRA = outputCounts.randomAccess();
+	    RandomAccess<FloatType> outputPlanaritySumRA = outputPlanaritySum.randomAccess();
+	    */
 
 	    for (long x = cpgdt.padding[0]; x < cpgdt.paddedDimension[0] - cpgdt.padding[0]; x++) {
 		for (long y = cpgdt.padding[1]; y < cpgdt.paddedDimension[1] - cpgdt.padding[1]; y++) {
@@ -372,18 +380,28 @@ public class SparkCalculatePropertiesFromMedialSurface {
 			if( cpgdtRA.get().get() < Float.POSITIVE_INFINITY) {
 			    //TODO: simple test
 			    float planarity = planarityCalculator.getPlanarity(position);
+			    
 			    int planarityBin = (int) Math.ceil(planarity * 254) + 1;
+			    
 			    outputPlanarityRA.setPosition(new long[] {x-cpgdt.padding[0], y-cpgdt.padding[1], z-cpgdt.padding[2]});
 			    outputPlanarityRA.get().set(planarityBin);
-			    sheetnessAndVolumeHistogram.put(planarityBin,
-				    sheetnessAndVolumeHistogram.getOrDefault(planarityBin, 0.0) + voxelVolume);
+			    
+			    /*
+			    VoxelProperties voxelProperties = planarityCalculator.voxelToPropertiesMap.get(Arrays.asList(position[0],position[1],position[2]));
+			    outputCountsRA.setPosition(new long[] {x-cpgdt.padding[0], y-cpgdt.padding[1], z-cpgdt.padding[2]});
+			    outputCountsRA.get().set(voxelProperties.planarityCount);
+			    outputPlanaritySumRA.setPosition(new long[] {x-cpgdt.padding[0], y-cpgdt.padding[1], z-cpgdt.padding[2]});
+			    outputPlanaritySumRA.get().set(voxelProperties.planaritySum);
+			    */
+			    planarityAndVolumeHistogram.put(planarityBin,
+				    planarityAndVolumeHistogram.getOrDefault(planarityBin, 0.0) + voxelVolume);
 
 			    segmentationRA.setPosition(new long[] {x-cpgdt.padding[0]+1, y-cpgdt.padding[1]+1, z-cpgdt.padding[2]+1});
 			    int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(segmentationRA,
 				    new long [] {offset[0]-1,offset[1]-1,offset[2]-1}, dimensions, true);
 			    if (faces > 0) {
-				sheetnessAndSurfaceAreaHistogram.put(planarityBin,
-					sheetnessAndSurfaceAreaHistogram.getOrDefault(planarityBin, 0.0)
+				planarityAndSurfaceAreaHistogram.put(planarityBin,
+					planarityAndSurfaceAreaHistogram.getOrDefault(planarityBin, 0.0)
 					+ faces * voxelFaceArea);
 			    }
 
@@ -394,8 +412,8 @@ public class SparkCalculatePropertiesFromMedialSurface {
 				// bin thickness in 8 nm bins
 				int thicknessBin = (int) Math.min(Math.floor(thickness * pixelResolution[0] / 8), 99);
 				List<Integer> histogramBinList = Arrays.asList(planarityBin, thicknessBin);
-				sheetnessAndThicknessHistogram.put(histogramBinList,
-					sheetnessAndThicknessHistogram.getOrDefault(histogramBinList, 0L) + 1L);
+				planarityAndThicknessHistogram.put(histogramBinList,
+					planarityAndThicknessHistogram.getOrDefault(histogramBinList, 0L) + 1L);
 			    }
 
 
@@ -408,8 +426,16 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
 	    N5Utils.saveBlock(outputPlanarity, n5BlockWriter, datasetName+"_planarity", gridBlock[2]);
-	    return new HistogramMaps(sheetnessAndThicknessHistogram, sheetnessAndSurfaceAreaHistogram,
-		    sheetnessAndVolumeHistogram);
+	    
+	    /*
+    	    N5Utils.saveBlock(Views.offsetInterval(cpgdt.correctlyPaddedGeodesicDistanceTransform, cpgdt.padding, dimension), n5BlockWriter, datasetName+"_cpgdt", gridBlock[2]);
+    	    N5Utils.saveBlock(outputCounts, n5BlockWriter, datasetName+"_count", gridBlock[2]);
+    	    N5Utils.saveBlock(outputPlanaritySum, n5BlockWriter, datasetName+"_sum", gridBlock[2]);
+	    */
+	    
+	    return new HistogramMaps(planarityAndThicknessHistogram, planarityAndSurfaceAreaHistogram,
+		    planarityAndVolumeHistogram);
+	    
 	});
 
 	HistogramMaps histogramMaps = javaRDDHistogramMaps.reduce((a, b) -> {
@@ -424,36 +450,36 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	final N5Reader n5BlockReader = new N5FSReader(n5OutputPath);
 
-	// Get corresponding medial surface and sheetness
-	RandomAccess<UnsignedByteType> sheetnessRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,
+	// Get corresponding medial surface and planarity
+	RandomAccess<UnsignedByteType> planarityRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,
 		datasetName, paddedOffset, paddedDimension);
 
-	Map<List<Integer>, Long> sheetnessAndThicknessHistogram = new HashMap<List<Integer>, Long>();
-	Map<Integer, Double> sheetnessAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
-	Map<Integer, Double> sheetnessAndVolumeHistogram = new HashMap<Integer, Double>();
+	Map<List<Integer>, Long> planarityAndThicknessHistogram = new HashMap<List<Integer>, Long>();
+	Map<Integer, Double> planarityAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
+	Map<Integer, Double> planarityAndVolumeHistogram = new HashMap<Integer, Double>();
 
 	for (long x = cpgdt.padding[0] - 1; x < cpgdt.padding[0]+dimension[0]; x++) {
 	    for (long y = cpgdt.padding[1] - 1; y < cpgdt.padding[1] + 1; y++) {
 		for (long z = cpgdt.padding[2] - 1; z < cpgdt.padding[2] + 1; z++) {
 		    long[] pos = new long[] { x, y, z };
-		    sheetnessRA.setPosition(pos);
-		    int sheetnessMeasureBin = sheetnessRA.get().get();
-		    if (sheetnessMeasureBin > 0) {
-			sheetnessAndVolumeHistogram.put(sheetnessMeasureBin,
-				sheetnessAndVolumeHistogram.getOrDefault(sheetnessMeasureBin, 0.0) + voxelVolume);
-			int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(sheetnessRA,
+		    planarityRA.setPosition(pos);
+		    int planarityMeasureBin = planarityRA.get().get();
+		    if (planarityMeasureBin > 0) {
+			planarityAndVolumeHistogram.put(planarityMeasureBin,
+				planarityAndVolumeHistogram.getOrDefault(planarityMeasureBin, 0.0) + voxelVolume);
+			int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(planarityRA,
 				paddedOffset, dimensions);
 			if (faces > 0) {
-			    sheetnessAndSurfaceAreaHistogram.put(sheetnessMeasureBin,
-				    sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessMeasureBin, 0.0)
+			    planarityAndSurfaceAreaHistogram.put(planarityMeasureBin,
+				    planarityAndSurfaceAreaHistogram.getOrDefault(planarityMeasureBin, 0.0)
 				    + faces * voxelFaceArea);
 			}
 		    }
 		}
 	    }
 	}
-	return new HistogramMaps(sheetnessAndThicknessHistogram, sheetnessAndSurfaceAreaHistogram,
-		sheetnessAndVolumeHistogram);
+	return new HistogramMaps(planarityAndThicknessHistogram, planarityAndSurfaceAreaHistogram,
+		planarityAndVolumeHistogram);
     });
 
     HistogramMaps histogramMaps = javaRDDHistogramMaps.reduce((a, b) -> {
@@ -464,7 +490,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	return histogramMaps;
     }
 
-    // Write out volume averaged sheetness
+    // Write out volume averaged planarity
 
     //return blockInformation;
 
@@ -542,116 +568,20 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	return updatedBlockInformationList;*/
 
-
     /**
      * 
-     * Create a sheetness volume from the medial surface by expanding the medial
-     * surface with a sphere centered at each voxel in the medial surface, with a
-     * radius equal to the distance transform at that voxel. The value of voxels
-     * within the sphere is the sheetness value at the center voxel, with all voxels
-     * in the the resultant volume set to the average value of all spheres
-     * containing that voxel.
+     * Calculate planarity and volume histograms
      * 
      * @param sc                   Spark context
      * @param n5Path               Path to n5
      * @param datasetName          N5 dataset name
      * @param n5OutputPath         Path to output n5
      * @param blockInformationList Block inforation list
-     * @return Histogram maps class with sheetness histograms
+     * @return Histogram maps class with planarity histograms
      * @throws IOException
      */
     @SuppressWarnings("unchecked")
-    public static final <T extends IntegerType<T> & NativeType<T>> Map<List<Integer>, Long> projectCurvatureToSurface(
-	    final JavaSparkContext sc, final String n5Path, final String datasetName, final String n5OutputPath,
-	    final List<BlockInformation> blockInformationList) throws IOException {
-
-	// General information
-	final N5Reader n5Reader = new N5FSReader(n5Path);
-	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName);
-	final int[] blockSize = attributes.getBlockSize();
-	double[] pixelResolution = IOHelper.getResolution(n5Reader, datasetName);
-	double voxelVolume = pixelResolution[0] * pixelResolution[1] * pixelResolution[2];
-	double voxelFaceArea = pixelResolution[0] * pixelResolution[1];
-
-	// Create output that will contain volume averaged sheetness
-	// TODO: check to make sure that for sphere to influence volume averaged
-	// sheetness of voxel, it can't pass through background
-	String outputDatasetName = datasetName + "_sheetnessVolumeAveraged";
-	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, outputDatasetName,
-		DataType.UINT8);
-
-	// Parallelize analysis over blocks
-	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
-	JavaRDD<Map<List<Integer>, Long>> javaRDDHistogramMaps = rdd.map(blockInformation -> {
-	    final long[][] gridBlock = blockInformation.gridBlock;
-	    final long padding = blockInformation.paddingForMedialSurface;
-	    final long[] paddedOffset = blockInformation.getPaddedOffset(padding);
-	    final long[] dimension = gridBlock[1];
-	    final long[] paddedDimension = blockInformation.getPaddedDimension(padding);
-
-	    // Create images required to calculate the average sheetness at a voxel: the sum
-	    // and the counts at a given voxel. Add an extra 2 because need to check for
-	    // surface voxels so need extra border of 1
-	    final Img<FloatType> sheetnessSum = new ArrayImgFactory<FloatType>(new FloatType())
-		    .create(new long[] { blockSize[0] + 2, blockSize[1] + 2, blockSize[2] + 2 });
-	    final Img<UnsignedIntType> counts = new ArrayImgFactory<UnsignedIntType>(new UnsignedIntType())
-		    .create(new long[] { blockSize[0] + 2, blockSize[1] + 2, blockSize[2] + 2 });
-	    RandomAccess<FloatType> sheetnessSumRA = sheetnessSum.randomAccess();
-	    RandomAccess<UnsignedIntType> countsRA = counts.randomAccess();
-
-	    // Update sheetness and thickness histogram, as well as sum and counts used to
-	    // create volume averaged sheetness
-	    Map<List<Integer>, Long> sheetnessAndThicknessHistogram = new HashMap<List<Integer>, Long>();
-
-	    { // Necessary? scoping to limit memory
-		// Get corresponding medial surface and sheetness
-		Cursor<T> medialSurfaceCursor = ProcessingHelper.getOffsetIntervalExtendZeroC(n5Path,
-			datasetName + "_medialSurface", paddedOffset, paddedDimension);
-		RandomAccess<FloatType> sheetnessRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5Path,
-			datasetName + "_sheetness", paddedOffset, paddedDimension);
-		RandomAccess<FloatType> distanceTransformRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(
-			n5OutputPath, datasetName + "_medialSurfaceDistanceTransform", paddedOffset, paddedDimension);
-
-		createSumAndCountsAndUpdateHistogram(medialSurfaceCursor, distanceTransformRA, sheetnessRA,
-			sheetnessSumRA, countsRA, pixelResolution, padding, paddedDimension,
-			sheetnessAndThicknessHistogram);
-	    }
-
-	    // Take average
-	    final Img<UnsignedByteType> output = createVolumeAveragedSheetnessAndUpdateHistograms(dimension,
-		    sheetnessSumRA, countsRA, voxelVolume, voxelFaceArea);
-
-	    // Write out volume averaged sheetness
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
-	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
-	    return sheetnessAndThicknessHistogram;
-	});
-
-	Map<List<Integer>, Long> sheetnessAndThicknessHistogram = javaRDDHistogramMaps.reduce((a, b) -> {
-	    for (Entry<List<Integer>, Long> entry : b.entrySet()) {
-		a.put(entry.getKey(), a.getOrDefault(entry.getKey(), 0L) + entry.getValue());
-	    }
-	    return a;
-	});
-
-	return sheetnessAndThicknessHistogram;
-
-    }
-
-    /**
-     * 
-     * Calculate sheetness and volume histograms
-     * 
-     * @param sc                   Spark context
-     * @param n5Path               Path to n5
-     * @param datasetName          N5 dataset name
-     * @param n5OutputPath         Path to output n5
-     * @param blockInformationList Block inforation list
-     * @return Histogram maps class with sheetness histograms
-     * @throws IOException
-     */
-    @SuppressWarnings("unchecked")
-    public static final HistogramMaps calculateSheetnessAndVolume(final JavaSparkContext sc, final String datasetName,
+    public static final HistogramMaps calculatePlanarityAndVolume(final JavaSparkContext sc, final String datasetName,
 	    final String n5OutputPath, final List<BlockInformation> blockInformationList) throws IOException {
 
 	// General information
@@ -662,7 +592,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	double voxelVolume = pixelResolution[0] * pixelResolution[1] * pixelResolution[2];
 	double voxelFaceArea = pixelResolution[0] * pixelResolution[1];
 
-	// Create output that will contain volume averaged sheetness
+	// Create output that will contain volume averaged planarity
 
 	// Parallelize analysis over blocks
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
@@ -674,36 +604,36 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	    final N5Reader n5BlockReader = new N5FSReader(n5OutputPath);
 
-	    // Get corresponding medial surface and sheetness
-	    RandomAccess<UnsignedByteType> sheetnessRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,
+	    // Get corresponding medial surface and planarity
+	    RandomAccess<UnsignedByteType> planarityRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,
 		    datasetName, paddedOffset, paddedDimension);
 
-	    Map<List<Integer>, Long> sheetnessAndThicknessHistogram = new HashMap<List<Integer>, Long>();
-	    Map<Integer, Double> sheetnessAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
-	    Map<Integer, Double> sheetnessAndVolumeHistogram = new HashMap<Integer, Double>();
+	    Map<List<Integer>, Long> planarityAndThicknessHistogram = new HashMap<List<Integer>, Long>();
+	    Map<Integer, Double> planarityAndSurfaceAreaHistogram = new HashMap<Integer, Double>();
+	    Map<Integer, Double> planarityAndVolumeHistogram = new HashMap<Integer, Double>();
 
 	    for (long x = 1; x < dimension[0] + 1; x++) {
 		for (long y = 1; y < dimension[1] + 1; y++) {
 		    for (long z = 1; z < dimension[2] + 1; z++) {
 			long[] pos = new long[] { x, y, z };
-			sheetnessRA.setPosition(pos);
-			int sheetnessMeasureBin = sheetnessRA.get().get();
-			if (sheetnessMeasureBin > 0) {
-			    sheetnessAndVolumeHistogram.put(sheetnessMeasureBin,
-				    sheetnessAndVolumeHistogram.getOrDefault(sheetnessMeasureBin, 0.0) + voxelVolume);
-			    int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(sheetnessRA,
+			planarityRA.setPosition(pos);
+			int planarityMeasureBin = planarityRA.get().get();
+			if (planarityMeasureBin > 0) {
+			    planarityAndVolumeHistogram.put(planarityMeasureBin,
+				    planarityAndVolumeHistogram.getOrDefault(planarityMeasureBin, 0.0) + voxelVolume);
+			    int faces = ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(planarityRA,
 				    paddedOffset, dimensions, false);
 			    if (faces > 0) {
-				sheetnessAndSurfaceAreaHistogram.put(sheetnessMeasureBin,
-					sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessMeasureBin, 0.0)
+				planarityAndSurfaceAreaHistogram.put(planarityMeasureBin,
+					planarityAndSurfaceAreaHistogram.getOrDefault(planarityMeasureBin, 0.0)
 					+ faces * voxelFaceArea);
 			    }
 			}
 		    }
 		}
 	    }
-	    return new HistogramMaps(sheetnessAndThicknessHistogram, sheetnessAndSurfaceAreaHistogram,
-		    sheetnessAndVolumeHistogram);
+	    return new HistogramMaps(planarityAndThicknessHistogram, planarityAndSurfaceAreaHistogram,
+		    planarityAndVolumeHistogram);
 	});
 
 	HistogramMaps histogramMaps = javaRDDHistogramMaps.reduce((a, b) -> {
@@ -716,22 +646,22 @@ public class SparkCalculatePropertiesFromMedialSurface {
     }
 
     /**
-     * Update sheetness sum and count images which are used to calculate the volume
-     * averaged sheetness. The averaged sheetness is calculated by taking the radius
+     * Update planarity sum and count images which are used to calculate the volume
+     * averaged planarity. The averaged planarity is calculated by taking the radius
      * (thickness) at a medial surface voxel, and filing in all voxels within that
-     * sphere with the corresponding sheetness. Sum and counts are used to take the
+     * sphere with the corresponding planarity. Sum and counts are used to take the
      * average in cases where multiple spheres contain a single voxel.
      * 
      * @param pos               Position
      * @param radiusPlusPadding Radius with padding
      * @param radiusSquared     Radius squared
      * @param cpdt              Correctly padded distance transform instance
-     * @param sheetnessMeasure  Sheetness value
-     * @param sheetnessSumRA    Random access for sheetness sum
+     * @param planarityMeasure  Planarity value
+     * @param planaritySumRA    Random access for planarity sum
      * @param countsRA          Random access for counts
      */
-    private static void updateSheetnessSumAndCount(int[] pos, int radiusPlusPadding, float radiusSquared,
-	    float sheetnessMeasure, RandomAccess<FloatType> sheetnessSumRA, RandomAccess<UnsignedIntType> countsRA,
+    private static void updatePlanaritySumAndCount(int[] pos, int radiusPlusPadding, float radiusSquared,
+	    float planarityMeasure, RandomAccess<FloatType> planaritySumRA, RandomAccess<UnsignedIntType> countsRA,
 	    long padding, long[] paddedDimension) {
 
 	for (int x = pos[0] - radiusPlusPadding; x <= pos[0] + radiusPlusPadding; x++) {
@@ -748,9 +678,9 @@ public class SparkCalculatePropertiesFromMedialSurface {
 			// then it is in sphere
 			long[] spherePos = new long[] { x - (padding - 1), y - (padding - 1), z - (padding - 1) };
 
-			sheetnessSumRA.setPosition(spherePos);
-			FloatType outputVoxel = sheetnessSumRA.get();
-			outputVoxel.set(outputVoxel.get() + sheetnessMeasure);
+			planaritySumRA.setPosition(spherePos);
+			FloatType outputVoxel = planaritySumRA.get();
+			outputVoxel.set(outputVoxel.get() + planarityMeasure);
 
 			countsRA.setPosition(spherePos);
 			UnsignedIntType countsVoxel = countsRA.get();
@@ -765,23 +695,23 @@ public class SparkCalculatePropertiesFromMedialSurface {
     /**
      * Use distance transform to get thickness at medial surface. Use that thickness
      * as a radius for spheres to calculate sum and counts for volume averaged
-     * sheetness.
+     * planarity.
      * 
      * @param medialSurfaceCursor            Cursor for medial surface
      * @param cpdt                           Correctly padded distance transform
      *                                       class instance
-     * @param sheetnessRA                    Sheetness random access
-     * @param sheetnessSumRA                 Sheetness sum random access
+     * @param planarityRA                    Planarity random access
+     * @param planaritySumRA                 Planarity sum random access
      * @param countsRA                       Counts random access
      * @param pixelResolution                Pixel resolution
-     * @param sheetnessAndThicknessHistogram Histogram as a map containing sheetness
+     * @param planarityAndThicknessHistogram Histogram as a map containing planarity
      *                                       and thickness
      */
     private static <T extends IntegerType<T> & NativeType<T>> void createSumAndCountsAndUpdateHistogram(
 	    Cursor<T> medialSurfaceCursor, RandomAccess<FloatType> distanceTransformRA,
-	    RandomAccess<FloatType> sheetnessRA, RandomAccess<FloatType> sheetnessSumRA,
+	    RandomAccess<FloatType> planarityRA, RandomAccess<FloatType> planaritySumRA,
 	    RandomAccess<UnsignedIntType> countsRA, double[] pixelResolution, long padding, long[] paddedDimension,
-	    Map<List<Integer>, Long> sheetnessAndThicknessHistogram) {
+	    Map<List<Integer>, Long> planarityAndThicknessHistogram) {
 	while (medialSurfaceCursor.hasNext()) {
 	    final long medialSurfaceValue = medialSurfaceCursor.next().getIntegerLong();
 	    if (medialSurfaceValue > 0) { // then it is on medial surface
@@ -789,14 +719,14 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		int[] pos = { medialSurfaceCursor.getIntPosition(0), medialSurfaceCursor.getIntPosition(1),
 			medialSurfaceCursor.getIntPosition(2) };
 		distanceTransformRA.setPosition(pos);
-		sheetnessRA.setPosition(pos);
+		planarityRA.setPosition(pos);
 
 		float radiusSquared = distanceTransformRA.get().getRealFloat();
 		double radius = Math.sqrt(radiusSquared);
 		int radiusPlusPadding = (int) Math.ceil(radius);
 
-		float sheetnessMeasure = sheetnessRA.get().getRealFloat();
-		int sheetnessMeasureBin = (int) Math.ceil(sheetnessMeasure * 254) + 1;
+		float planarityMeasure = planarityRA.get().getRealFloat();
+		int planarityMeasureBin = (int) Math.ceil(planarityMeasure * 254) + 1;
 
 		if (pos[0] >= padding && pos[0] < paddedDimension[0] - padding && pos[1] >= padding
 			&& pos[1] < paddedDimension[1] - padding && pos[2] >= padding
@@ -806,33 +736,33 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		    // bin thickness in 8 nm bins
 		    int thicknessBin = (int) Math.min(Math.floor(thickness * pixelResolution[0] / 8), 99);
 
-		    List<Integer> histogramBinList = Arrays.asList(sheetnessMeasureBin, thicknessBin);
-		    sheetnessAndThicknessHistogram.put(histogramBinList,
-			    sheetnessAndThicknessHistogram.getOrDefault(histogramBinList, 0L) + 1L);
+		    List<Integer> histogramBinList = Arrays.asList(planarityMeasureBin, thicknessBin);
+		    planarityAndThicknessHistogram.put(histogramBinList,
+			    planarityAndThicknessHistogram.getOrDefault(histogramBinList, 0L) + 1L);
 		}
 
-		updateSheetnessSumAndCount(pos, radiusPlusPadding, radiusSquared, sheetnessMeasure, sheetnessSumRA,
+		updatePlanaritySumAndCount(pos, radiusPlusPadding, radiusSquared, planarityMeasure, planaritySumRA,
 			countsRA, padding, paddedDimension);
 	    }
 	}
     }
 
     /**
-     * Create output volume averaged sheetness by dividing Sum image by Counts
+     * Create output volume averaged planarity by dividing Sum image by Counts
      * image, and binning from 0-255.
      * 
      * @param dimension                        Block dimension
-     * @param sheetnessSumRA                   Sheetness sum random access
+     * @param planaritySumRA                   Planarity sum random access
      * @param countsRA                         Counts random access
      * @param voxelVolume                      Volume of a voxel
      * @param voxelFaceArea                    Area of a voxel face
-     * @param sheetnessAndSurfaceAreaHistogram Histogram for sheetness and surface
+     * @param planarityAndSurfaceAreaHistogram Histogram for planarity and surface
      *                                         area
-     * @param sheetnessAndVolumeHistogram      Histogram for sheetness and volume
+     * @param planarityAndVolumeHistogram      Histogram for planarity and volume
      * @return
      */
-    private static Img<UnsignedByteType> createVolumeAveragedSheetnessAndUpdateHistograms(long[] dimension,
-	    RandomAccess<FloatType> sheetnessSumRA, RandomAccess<UnsignedIntType> countsRA, double voxelVolume,
+    private static Img<UnsignedByteType> createVolumeAveragedPlanarityAndUpdateHistograms(long[] dimension,
+	    RandomAccess<FloatType> planaritySumRA, RandomAccess<UnsignedIntType> countsRA, double voxelVolume,
 	    double voxelFaceArea) {
 
 	final Img<UnsignedByteType> output = new ArrayImgFactory<UnsignedByteType>(new UnsignedByteType())
@@ -845,16 +775,16 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		    long[] pos = new long[] { x, y, z };
 		    countsRA.setPosition(pos);
 		    if (countsRA.get().get() > 0) {
-			sheetnessSumRA.setPosition(pos);
-			float sheetnessMeasure = sheetnessSumRA.get().get() / countsRA.get().get();
-			sheetnessSumRA.get().set(sheetnessMeasure);// take average
-			int sheetnessMeasureBin = (int) Math.ceil(sheetnessMeasure * 254) + 1;// add one in case any are
+			planaritySumRA.setPosition(pos);
+			float planarityMeasure = planaritySumRA.get().get() / countsRA.get().get();
+			planaritySumRA.get().set(planarityMeasure);// take average
+			int planarityMeasureBin = (int) Math.ceil(planarityMeasure * 254) + 1;// add one in case any are
 			// 0
 
 			outputRandomAccess.setPosition(new long[] { x - 1, y - 1, z - 1 });
 
 			// rescale to 0-255
-			outputRandomAccess.get().set(sheetnessMeasureBin);
+			outputRandomAccess.get().set(planarityMeasureBin);
 		    }
 		}
 	    }
@@ -876,46 +806,46 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    new File(outputDirectory).mkdirs();
 	}
 
-	FileWriter sheetnessVolumeAndAreaHistograms = new FileWriter(
-		outputDirectory + "/" + datasetName + "_sheetnessVolumeAndAreaHistograms.csv");
-	sheetnessVolumeAndAreaHistograms.append("Sheetness,Volume (nm^3),Surface Area(nm^2)\n");
+	FileWriter planarityVolumeAndAreaHistograms = new FileWriter(
+		outputDirectory + "/" + datasetName + "_planarityVolumeAndAreaHistograms.csv");
+	planarityVolumeAndAreaHistograms.append("Planarity,Volume (nm^3),Surface Area (nm^2)\n");
 
-	FileWriter sheetnessVsThicknessHistogram = null;
+	FileWriter planarityVsThicknessHistogram = null;
 	String rowString;
 	if (writeThickness) {
-	    sheetnessVsThicknessHistogram = new FileWriter(
-		    outputDirectory + "/" + datasetName + "_sheetnessVsThicknessHistogram.csv");
-	    rowString = "Sheetness/Thickness (nm)";
+	    planarityVsThicknessHistogram = new FileWriter(
+		    outputDirectory + "/" + datasetName + "_planarityVsThicknessHistogram.csv");
+	    rowString = "Planarity/Thickness (nm)";
 	    for (int thicknessBin = 0; thicknessBin < 100; thicknessBin++) {
 		rowString += "," + Integer.toString(thicknessBin * 8 + 4);
 	    }
-	    sheetnessVsThicknessHistogram.append(rowString + "\n");
+	    planarityVsThicknessHistogram.append(rowString + "\n");
 	}
 
-	for (int sheetnessBin = 1; sheetnessBin < 256; sheetnessBin++) {
-	    double volume = histogramMaps.sheetnessAndVolumeHistogram.getOrDefault(sheetnessBin, 0.0);
-	    double surfaceArea = histogramMaps.sheetnessAndSurfaceAreaHistogram.getOrDefault(sheetnessBin, 0.0);
+	for (int planarityBin = 1; planarityBin < 256; planarityBin++) {
+	    double volume = histogramMaps.planarityAndVolumeHistogram.getOrDefault(planarityBin, 0.0);
+	    double surfaceArea = histogramMaps.planarityAndSurfaceAreaHistogram.getOrDefault(planarityBin, 0.0);
 
-	    String sheetnessBinString = Double.toString((sheetnessBin - 1) / 255.0 + 0.5 / 255.0);
-	    sheetnessVolumeAndAreaHistograms.append(
-		    sheetnessBinString + "," + Double.toString(volume) + "," + Double.toString(surfaceArea) + "\n");
+	    String planarityBinString = Double.toString((planarityBin - 1) / 255.0 + 0.5 / 255.0);
+	    planarityVolumeAndAreaHistograms.append(
+		    planarityBinString + "," + Double.toString(volume) + "," + Double.toString(surfaceArea) + "\n");
 
 	    if (writeThickness) {
-		rowString = sheetnessBinString;
+		rowString = planarityBinString;
 		for (int thicknessBin = 0; thicknessBin < 100; thicknessBin++) {
-		    double thicknessCount = histogramMaps.sheetnessAndThicknessHistogram
-			    .getOrDefault(Arrays.asList(sheetnessBin, thicknessBin), 0L);
+		    double thicknessCount = histogramMaps.planarityAndThicknessHistogram
+			    .getOrDefault(Arrays.asList(planarityBin, thicknessBin), 0L);
 		    rowString += "," + Double.toString(thicknessCount);
 		}
-		sheetnessVsThicknessHistogram.append(rowString + "\n");
+		planarityVsThicknessHistogram.append(rowString + "\n");
 	    }
 	}
-	sheetnessVolumeAndAreaHistograms.flush();
-	sheetnessVolumeAndAreaHistograms.close();
+	planarityVolumeAndAreaHistograms.flush();
+	planarityVolumeAndAreaHistograms.close();
 
 	if (writeThickness) {
-	    sheetnessVsThicknessHistogram.flush();
-	    sheetnessVsThicknessHistogram.close();
+	    planarityVsThicknessHistogram.flush();
+	    planarityVsThicknessHistogram.close();
 	}
 
     }
@@ -932,7 +862,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	    JavaSparkContext sc = new JavaSparkContext(conf);
 	    if (calculateAreaAndVolumeFromExistingDataset) {
-		HistogramMaps histogramMaps = calculateSheetnessAndVolume(sc, organelle, outputN5Path,
+		HistogramMaps histogramMaps = calculatePlanarityAndVolume(sc, organelle, outputN5Path,
 			blockInformationList);
 		writeData(histogramMaps, outputDirectory, organelle, false);
 	    } else {

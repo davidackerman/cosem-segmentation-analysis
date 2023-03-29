@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,11 +38,12 @@ import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.CorrectlyPaddedDistanceTransform;
 import org.janelia.cosem.util.CorrectlyPaddedGeodesicDistanceTransform;
 import org.janelia.cosem.util.IOHelper;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
+
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
-import org.janelia.saalfeldlab.n5.N5FSWriter;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
@@ -165,8 +167,125 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	}
 
     }
-
     public static class PlanarityCalculator {
+
+	public class VoxelProperties {
+	    private HashMap<List<Long>, Float> nearestMedialSurfaceVoxelsToPlanarityMap = new HashMap<List<Long>, Float>();
+	    public float planarity;
+	    VoxelProperties(HashMap<List<Long>, Float> nearestMedialSurfaceVoxelsToPlanarityMap){
+		this.nearestMedialSurfaceVoxelsToPlanarityMap  = nearestMedialSurfaceVoxelsToPlanarityMap;
+		
+		Collection<Float> planarities = nearestMedialSurfaceVoxelsToPlanarityMap.values();
+		this.planarity = 0;
+		for(Float planarity: planarities) {
+		    this.planarity += planarity;
+		}
+		this.planarity/=planarities.size();
+	    }
+
+	}
+
+	private HashMap<List<Long>, Float> deltaToWeightsMap = new HashMap<List<Long>, Float>();
+	private HashMap<List<Long>, VoxelProperties> voxelToPropertiesMap = new HashMap<List<Long>, VoxelProperties>();
+	private RandomAccess<FloatType> geodesicDistancesRA;
+	private RandomAccess<FloatType> planarityRA;
+
+
+	PlanarityCalculator(RandomAccess<FloatType> geodesicDistancesRA, RandomAccess<FloatType> planarityRA, float[] weights) {
+	    this.geodesicDistancesRA = geodesicDistancesRA;
+	    this.planarityRA = planarityRA;
+
+	    for (long deltaX = -1; deltaX <= 1; deltaX++) {
+		for (long deltaY = -1; deltaY <= 1; deltaY++) {
+		    for (long deltaZ = -1; deltaZ <= 1; deltaZ++) {
+			Long[] delta = new Long[] { deltaX, deltaY, deltaZ };
+			long distance = delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2];
+			Float geodesicDistance = (float) 0.0;
+			if (distance == 1) {
+			    geodesicDistance = weights[0];
+			} else if (distance == 2) {
+			    geodesicDistance = weights[1];
+			} else if (distance == 3) {
+			    geodesicDistance = weights[2];
+			}
+			deltaToWeightsMap.put(Arrays.asList(delta), geodesicDistance);
+		    }
+		}
+	    }
+	}
+
+	private List<List<Long>> getNearestNeighbors(long[] position) {
+	    geodesicDistancesRA.setPosition(position);
+	    List<List<Long>> nearestNeighbors = new ArrayList<List<Long>>();
+	    float centerGeodesicDistance = geodesicDistancesRA.get().get();
+	    if (centerGeodesicDistance == 0) {
+		//Then is on medial surface and so takes the value of the medial surface
+		return nearestNeighbors;
+	    }
+
+	    for (long deltaX = -1; deltaX <= 1; deltaX++) {
+		for (long deltaY = -1; deltaY <= 1; deltaY++) {
+		    for (long deltaZ = -1; deltaZ <= 1; deltaZ++) {
+			if (!(deltaX == 0 && deltaY == 0 && deltaZ == 0)) {
+			    long[] neighborPosition = new long[] { position[0] + deltaX, position[1] + deltaY,
+				    position[2] + deltaZ };
+			    geodesicDistancesRA.setPosition(neighborPosition);
+			    float neighborGeodesicDistance = geodesicDistancesRA.get().get();
+			    List<Long> delta = Arrays.asList( deltaX, deltaY, deltaZ );
+			    if (centerGeodesicDistance
+				    - this.deltaToWeightsMap.get(delta) == neighborGeodesicDistance) {
+				// then this is the path to take
+				nearestNeighbors.add(Arrays.asList( position[0] + deltaX, position[1] + deltaY,
+					position[2] + deltaZ ));
+			    }
+
+			}
+		    }
+		}
+	    }
+	    return nearestNeighbors;
+	}
+
+	private void updateVoxelProperties(long [] position) {
+	    HashMap<List<Long>, Float> nearestMedialSurfaceVoxelsToPlanarityMap = new HashMap<List<Long>, Float>();
+	    List<List<Long>> nearestNeighbors = this.getNearestNeighbors(position);
+
+	    if(nearestNeighbors.isEmpty()) {
+		//Then is on medial surface
+		this.planarityRA.setPosition(position);
+		float planarity = planarityRA.get().get();
+		nearestMedialSurfaceVoxelsToPlanarityMap.put(Arrays.asList(position[0],position[1],position[2]),planarity);
+	    }
+	    else {
+		
+		for(List<Long> nearestNeighbor : nearestNeighbors) {
+		    if(! voxelToPropertiesMap.containsKey(nearestNeighbor)){
+			updateVoxelProperties(new long [] {nearestNeighbor.get(0), nearestNeighbor.get(1), nearestNeighbor.get(2)});
+		    }
+		    VoxelProperties voxelProperties = voxelToPropertiesMap.get(nearestNeighbor);
+		    nearestMedialSurfaceVoxelsToPlanarityMap.putAll(voxelProperties.nearestMedialSurfaceVoxelsToPlanarityMap);
+		}
+	    }
+
+	    VoxelProperties voxelProperties = new VoxelProperties(nearestMedialSurfaceVoxelsToPlanarityMap);
+	    voxelToPropertiesMap.put(Arrays.asList(position[0],position[1],position[2]),voxelProperties);
+	}
+
+	public float getPlanarity(long [] position) {
+	    VoxelProperties voxelProperties = this.voxelToPropertiesMap.getOrDefault(Arrays.asList(position[0],position[1],position[2]),null);
+	    if(voxelProperties==null) {
+		this.updateVoxelProperties(position);
+		voxelProperties = this.voxelToPropertiesMap.get(Arrays.asList(position[0],position[1],position[2]));
+	    }
+	    this.geodesicDistancesRA.setPosition(position);
+	    if(this.geodesicDistancesRA.get().get() ==32) {
+		//	System.out.println(this.getNearestNeighbors(position).size());
+	    }
+	    //System.out.println(this.geodesicDistancesRA.get().get() + " "+voxelProperties.planarityCount);
+	    return voxelProperties.planarity;
+	}
+    }
+    public static class PlanarityCalculatorUsingPaths {
 
 	public class VoxelProperties {
 	    public List<List<Long>> nearestNeighbors;
@@ -188,7 +307,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	private RandomAccess<FloatType> planarityRA;
 
 
-	PlanarityCalculator(RandomAccess<FloatType> geodesicDistancesRA, RandomAccess<FloatType> planarityRA, float[] weights) {
+	PlanarityCalculatorUsingPaths(RandomAccess<FloatType> geodesicDistancesRA, RandomAccess<FloatType> planarityRA, float[] weights) {
 	    this.geodesicDistancesRA = geodesicDistancesRA;
 	    this.planarityRA = planarityRA;
 
@@ -304,11 +423,11 @@ public class SparkCalculatePropertiesFromMedialSurface {
 
 	String outputDatasetName = datasetName + "_medialSurfaceDistanceTransform";
 	// General information
-	final int[] blockSize = new N5FSReader(n5Path).getDatasetAttributes(datasetName).getBlockSize();
-	final long[] offsets = IOHelper.getOffset(new N5FSReader(n5Path), datasetName);
-	final long[] dimensions = new N5FSReader(n5Path).getDatasetAttributes(datasetName).getDimensions();
+	final int[] blockSize =  N5GenericReader(n5Path).getDatasetAttributes(datasetName).getBlockSize();
+	final long[] offsets = IOHelper.getOffset(N5GenericReader(n5Path), datasetName);
+	final long[] dimensions = N5GenericReader(n5Path).getDatasetAttributes(datasetName).getDimensions();
 
-	double[] pixelResolution = IOHelper.getResolution(new N5FSReader(n5Path), datasetName);
+	double[] pixelResolution = IOHelper.getResolution(N5GenericReader(n5Path), datasetName);
 	double voxelVolume = pixelResolution[0] * pixelResolution[1] * pixelResolution[2];
 	double voxelFaceArea = pixelResolution[0] * pixelResolution[1];
 
@@ -320,8 +439,8 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		DataType.FLOAT32);
 	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_count",
 		DataType.UINT64);	
-	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_sum",
-			DataType.FLOAT32);
+	//ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, datasetName+"_sum",
+	//		DataType.FLOAT32);
 	*/
 	
 	// calculate distance from medial surface
@@ -332,7 +451,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    final long[][] gridBlock = blockInformation.gridBlock;
 	    final long[] offset = gridBlock[0];
 	    final long[] dimension = gridBlock[1];
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 	    // Get correctly padded distance transform first
 	    RandomAccessibleInterval<T> segmentation = (RandomAccessibleInterval<T>) N5Utils
@@ -367,9 +486,9 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    
 	    /*
 	    IntervalView<UnsignedLongType> outputCounts = Views.offsetInterval(ArrayImgs.unsignedLongs(dimension),new long[]{0,0,0}, dimension);
-	    IntervalView<FloatType> outputPlanaritySum = Views.offsetInterval(ArrayImgs.floats(dimension),new long[]{0,0,0}, dimension);
+	    //IntervalView<FloatType> outputPlanaritySum = Views.offsetInterval(ArrayImgs.floats(dimension),new long[]{0,0,0}, dimension);
 	    RandomAccess<UnsignedLongType> outputCountsRA = outputCounts.randomAccess();
-	    RandomAccess<FloatType> outputPlanaritySumRA = outputPlanaritySum.randomAccess();
+	    //RandomAccess<FloatType> outputPlanaritySumRA = outputPlanaritySum.randomAccess();
 	    */
 
 	    for (long x = cpgdt.padding[0]; x < cpgdt.paddedDimension[0] - cpgdt.padding[0]; x++) {
@@ -389,9 +508,9 @@ public class SparkCalculatePropertiesFromMedialSurface {
 			    /*
 			    VoxelProperties voxelProperties = planarityCalculator.voxelToPropertiesMap.get(Arrays.asList(position[0],position[1],position[2]));
 			    outputCountsRA.setPosition(new long[] {x-cpgdt.padding[0], y-cpgdt.padding[1], z-cpgdt.padding[2]});
-			    outputCountsRA.get().set(voxelProperties.planarityCount);
-			    outputPlanaritySumRA.setPosition(new long[] {x-cpgdt.padding[0], y-cpgdt.padding[1], z-cpgdt.padding[2]});
-			    outputPlanaritySumRA.get().set(voxelProperties.planaritySum);
+			    outputCountsRA.get().set(voxelProperties.nearestMedialSurfaceVoxelsToPlanarityMap.size());
+			    //outputPlanaritySumRA.setPosition(new long[] {x-cpgdt.padding[0], y-cpgdt.padding[1], z-cpgdt.padding[2]});
+			    //outputPlanaritySumRA.get().set(voxelProperties.planaritySum);
 			    */
 			    planarityAndVolumeHistogram.put(planarityBin,
 				    planarityAndVolumeHistogram.getOrDefault(planarityBin, 0.0) + voxelVolume);
@@ -424,13 +543,13 @@ public class SparkCalculatePropertiesFromMedialSurface {
 		}
 	    }
 
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(outputPlanarity, n5BlockWriter, datasetName+"_planarity", gridBlock[2]);
 	    
 	    /*
     	    N5Utils.saveBlock(Views.offsetInterval(cpgdt.correctlyPaddedGeodesicDistanceTransform, cpgdt.padding, dimension), n5BlockWriter, datasetName+"_cpgdt", gridBlock[2]);
     	    N5Utils.saveBlock(outputCounts, n5BlockWriter, datasetName+"_count", gridBlock[2]);
-    	    N5Utils.saveBlock(outputPlanaritySum, n5BlockWriter, datasetName+"_sum", gridBlock[2]);
+    	    //N5Utils.saveBlock(outputPlanaritySum, n5BlockWriter, datasetName+"_sum", gridBlock[2]);
 	    */
 	    
 	    return new HistogramMaps(planarityAndThicknessHistogram, planarityAndSurfaceAreaHistogram,
@@ -585,7 +704,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    final String n5OutputPath, final List<BlockInformation> blockInformationList) throws IOException {
 
 	// General information
-	final N5Reader n5Reader = new N5FSReader(n5OutputPath);
+	final N5Reader n5Reader = N5GenericReader(n5OutputPath);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName);
 	final long[] dimensions = attributes.getDimensions();
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, datasetName);
@@ -602,7 +721,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    final long[] paddedOffset = blockInformation.getPaddedOffset(1);
 	    final long[] paddedDimension = blockInformation.getPaddedDimension(1);
 
-	    final N5Reader n5BlockReader = new N5FSReader(n5OutputPath);
+	    final N5Reader n5BlockReader = N5GenericReader(n5OutputPath);
 
 	    // Get corresponding medial surface and planarity
 	    RandomAccess<UnsignedByteType> planarityRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,
@@ -802,10 +921,13 @@ public class SparkCalculatePropertiesFromMedialSurface {
      */
     public static void writeData(HistogramMaps histogramMaps, String outputDirectory, String datasetName,
 	    boolean writeThickness) throws IOException {
+	if (outputDirectory.contains("s3://")) {
+	    outputDirectory = outputDirectory.replace("s3://janelia-cosem-datasets-dev/","/nrs/cellmap/");
+	    outputDirectory = outputDirectory.replace("s3://janelia-cosem-datasets/","/nrs/cellmap/");
+	}
 	if (!new File(outputDirectory).exists()) {
 	    new File(outputDirectory).mkdirs();
 	}
-
 	FileWriter planarityVolumeAndAreaHistograms = new FileWriter(
 		outputDirectory + "/" + datasetName + "_planarityVolumeAndAreaHistograms.csv");
 	planarityVolumeAndAreaHistograms.append("Planarity,Volume (nm^3),Surface Area (nm^2)\n");

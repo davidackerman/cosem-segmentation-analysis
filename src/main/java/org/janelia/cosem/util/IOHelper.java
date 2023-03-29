@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Set;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.ij.N5Factory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

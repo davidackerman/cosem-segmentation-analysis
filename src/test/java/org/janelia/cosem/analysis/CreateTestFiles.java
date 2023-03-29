@@ -188,7 +188,7 @@ public class CreateTestFiles {
 	SparkCurvature.setupSparkAndCalculateCurvature(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, 12, false);
 	
 	//calculate properties from medial surface
-	SparkCalculatePropertiesFromMedialSurface.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
+	SparkCalculatePropertiesFromMedialSurfaceBasic.setupSparkAndCalculatePropertiesFromMedialSurface(TestHelper.testN5Locations, "shapes_cc", TestHelper.testN5Locations, TestHelper.testFileLocations, false);
   
 	//sheetness of contact sites
 	SparkCalculateSheetnessOfContactSites.setupSparkAndCalculateSheetnessOfContactSites(TestHelper.testN5Locations, "shapes_cc_sheetnessVolumeAveraged", TestHelper.testFileLocations, "shapes_cc_to_planes_cc_cc");

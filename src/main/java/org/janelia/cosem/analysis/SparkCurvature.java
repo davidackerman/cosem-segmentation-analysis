@@ -85,7 +85,7 @@ public class SparkCurvature {
 		@Option(name = "--scaleSteps", required = false, usage = "Number of scale steps over which curvature is calculated")
 		private int scaleSteps = 12;
 		
-		@Option(name = "--calculateSphereness", required = false, usage = "Calculate Sphereness; if not set, will calculate sheetness")
+		@Option(name = "--calculateSphereness", required = false, usage = "Calculate Sphereness; if not set, will calculate planarity")
 		private boolean calculateSphereness = false;
 
 		public Options(final String[] args) {
@@ -129,7 +129,7 @@ public class SparkCurvature {
 	/**
 	 * Compute curvatures for objects in images.
 	 *
-	 * Calculates the sheetness of objects in images at their medial surfaces. Repetitively smoothes image, stopping for a given medial surface voxel when the laplacian at that voxel is smallest. Then calculates sheetness based on all corresponding eigenvalues of hessian.
+	 * Calculates the planarity of objects in images at their medial surfaces. Repetitively smoothes image, stopping for a given medial surface voxel when the laplacian at that voxel is smallest. Then calculates planarity based on all corresponding eigenvalues of hessian.
 	 * 
 	 * @param sc					Spark context
 	 * @param n5Path				Input N5 path
@@ -137,7 +137,7 @@ public class SparkCurvature {
 	 * @param n5OutputPath			Output N5 path
 	 * @param outputDatasetName		Output N5 dataset name
 	 * @param scaleSteps			Number of scale steps
-	 * @param calculateSphereness	If true, do sphereness; else do sheetness
+	 * @param calculateSphereness	If true, do sphereness; else do planarity
 	 * @param blockInformationList	List of block information to parallize over
 	 * @throws IOException
 	 */
@@ -155,7 +155,7 @@ public class SparkCurvature {
 
 		//Create output
 		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);	
-		String finalOutputDatasetName = calculateSphereness ? outputDatasetName+"_sphereness" : outputDatasetName+"_sheetness";
+		String finalOutputDatasetName = calculateSphereness ? outputDatasetName+"_spherenessAtMedialSurface" : outputDatasetName+"_planarityAtMedialSurface";
 		n5Writer.createDataset(finalOutputDatasetName, dimensions, blockSize, DataType.FLOAT32, new GzipCompression());
 		n5Writer.setAttribute(finalOutputDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
 		
@@ -193,32 +193,32 @@ public class SparkCurvature {
 			final IntervalView<T> medialSurfaceCropped = Views.offsetInterval(Views.extendMirrorDouble(medialSurface),paddedOffset, paddedDimension);
 			RandomAccess<T> medialSurfaceCroppedRA = medialSurfaceCropped.randomAccess();
 			
-			HashMap<List<Long>,SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap = new HashMap<List<Long>,SheetnessInformation>();
+			HashMap<List<Long>,PlanarityInformation> medialSurfaceCoordinatesToPlanarityInformationMap = new HashMap<List<Long>,PlanarityInformation>();
 			for(long x=padding; x<padding+dimension[0]; x++) {
 				for(long y=padding; y<padding+dimension[1]; y++) {
 					for(long z=padding; z<padding+dimension[2]; z++) {
 						long [] pos = new long[] {x,y,z};
 						medialSurfaceCroppedRA.setPosition(pos);
 						if(medialSurfaceCroppedRA.get().getIntegerLong()>0) {
-							medialSurfaceCoordinatesToSheetnessInformationMap.put(Arrays.asList(pos[0],pos[1],pos[2]),new SheetnessInformation());
+							medialSurfaceCoordinatesToPlanarityInformationMap.put(Arrays.asList(pos[0],pos[1],pos[2]),new PlanarityInformation());
 						}
 					}
 				}
 			}
 			
-			//Create sheetness output
+			//Create planarity output
 			IntervalView<FloatType> curvatureOutput = null;			
 			
 			//Perform curvature analysis
-			if(!medialSurfaceCoordinatesToSheetnessInformationMap.isEmpty()) {
-				getCurvature(sourceCropped, medialSurfaceCoordinatesToSheetnessInformationMap, new long[]{padding,padding,padding}, dimension, pixelResolution, sigmaSeries, calculateSphereness); 
+			if(!medialSurfaceCoordinatesToPlanarityInformationMap.isEmpty()) {
+				getCurvature(sourceCropped, medialSurfaceCoordinatesToPlanarityInformationMap, new long[]{padding,padding,padding}, dimension, pixelResolution, sigmaSeries, calculateSphereness); 
 				curvatureOutput = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
-				RandomAccess<FloatType> sheetnessRA = curvatureOutput.randomAccess();
+				RandomAccess<FloatType> planarityRA = curvatureOutput.randomAccess();
 				
-				for(Entry<List<Long>, SheetnessInformation> entry : medialSurfaceCoordinatesToSheetnessInformationMap.entrySet()) {
+				for(Entry<List<Long>, PlanarityInformation> entry : medialSurfaceCoordinatesToPlanarityInformationMap.entrySet()) {
 					long[] pos = new long[] {entry.getKey().get(0), entry.getKey().get(1), entry.getKey().get(2)};
-					sheetnessRA.setPosition(pos);
-					sheetnessRA.get().set((float) entry.getValue().curvature);
+					planarityRA.setPosition(pos);
+					planarityRA.get().set((float) entry.getValue().curvature);
 				}
 				
 				curvatureOutput = Views.offsetInterval(curvatureOutput,new long[]{padding,padding,padding}, dimension);
@@ -235,19 +235,19 @@ public class SparkCurvature {
 	}
 	
 	/**
-	 * Class to store useful information related to sheetness to save memory as opposed to storing many images
+	 * Class to store useful information related to planarity to save memory as opposed to storing many images
 	 *
 	 */
-	static class SheetnessInformation {
+	static class PlanarityInformation {
 		//use map to associate object ID with radii, edges etc
 		public double[][] b_minus_a_normalized;
 		public double minimumLaplacian;
 		public double curvature; 
 		
 		/**
-		 * Constructor to initialize sheetness information
+		 * Constructor to initialize planarity information
 		 */
-		public SheetnessInformation() 
+		public PlanarityInformation() 
 		{ 
 			this.b_minus_a_normalized = new double[3][3];
 			this.minimumLaplacian = 0;
@@ -291,23 +291,23 @@ public class SparkCurvature {
 	}
 
 	/**
-	 * Get sheetness of image by calculating it at medial surface, store it in medialSurfaceCoordinatesToSheetnessInformationMap
+	 * Get planarity of image by calculating it at medial surface, store it in medialSurfaceCoordinatesToPlanarityInformationMap
 	 * 
 	 * @param converted											 	Segmented image binarized as {@link FloatType}, used to store curvature
-	 * @param medialSurfaceCoordinatesToSheetnessInformationMap		Map of medial surface coordinates to corresponding sheetness information
+	 * @param medialSurfaceCoordinatesToPlanarityInformationMap		Map of medial surface coordinates to corresponding planarity information
 	 * @param padding												Padding for image
 	 * @param dimension												Dimension of image
 	 * @param resolution											Resolution of image
 	 * @param scaleSteps											Number of scale steps
-	 * @param calculateSphereness									If true, do sphereness; else do sheetness
+	 * @param calculateSphereness									If true, do sphereness; else do planarity
 	 */
-	public static void getCurvature(RandomAccessibleInterval<FloatType> converted, HashMap<List<Long>, SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap, 
+	public static void getCurvature(RandomAccessibleInterval<FloatType> converted, HashMap<List<Long>, PlanarityInformation> medialSurfaceCoordinatesToPlanarityInformationMap, 
 			long[] padding, long[] dimension, double[] resolution,double[][][] sigmaSeries, boolean calculateSphereness) {
 		
 		//Define scale steps and octave steps
 		long[] paddedDimension = new long[] {converted.dimension(0), converted.dimension(1), converted.dimension(2)};
 		
-		//Create required images for calculating sheetness
+		//Create required images for calculating planarity
 		ExtendedRandomAccessibleInterval<FloatType, RandomAccessibleInterval<FloatType>> source = Views.extendMirrorDouble(converted);
 		IntervalView<FloatType> smoothed = Views.offsetInterval(ArrayImgs.floats(paddedDimension),new long[]{0,0,0}, paddedDimension);
 		final RandomAccessible<FloatType>[] gradients = new RandomAccessible[converted.numDimensions()];
@@ -322,7 +322,6 @@ public class SparkCurvature {
 			op.setInput(source);
 			op.run(smoothed);
 			source = Views.extendMirrorDouble(smoothed);
-			
 			currentActualSigma = Math.sqrt(currentActualSigma*currentActualSigma+sigmaSeries[0][i][0]*sigmaSeries[0][i][0]);
 			/* gradients */
 			for (int d = 0; d < converted.numDimensions(); ++d) {
@@ -336,8 +335,8 @@ public class SparkCurvature {
 				gradients[d] = Views.extendMirrorDouble(gradient);
 			}
 			
-			//Update sheetness if necessary
-			updateCurvature(converted, gradients, medialSurfaceCoordinatesToSheetnessInformationMap, 
+			//Update planarity if necessary
+			updateCurvature(converted, gradients, medialSurfaceCoordinatesToPlanarityInformationMap, 
 					currentActualSigma,padding, dimension, i, calculateSphereness);
 		}
 		
@@ -345,20 +344,20 @@ public class SparkCurvature {
 	
 	
 	/**
-	 * Update sheetness - if necessary - for a given scale step in medialSurfaceCoordinatesToSheetnessInformationMap
+	 * Update planarity - if necessary - for a given scale step in medialSurfaceCoordinatesToPlanarityInformationMap
 	 * 
 	 * @param converted												Segmented image binarized as {@link FloatType}, used to store curvature
 	 * @param gradients												Gradients for current scale step
-	 * @param medialSurfaceCoordinatesToSheetnessInformationMap		Map of medial surface coordinates to corresponding sheetness information
-	 * @param sigma													Current sigma (of sigmaSeries) to calculate sheetness over
+	 * @param medialSurfaceCoordinatesToPlanarityInformationMap		Map of medial surface coordinates to corresponding planarity information
+	 * @param sigma													Current sigma (of sigmaSeries) to calculate planarity over
 	 * @param padding												Padding of image
 	 * @param dimension												Dimension of image
 	 * @param scaleStep												Scale step, for keeping track of progress
-	 * @param calculateSphereness									If true, do sphereness; else do sheetness
+	 * @param calculateSphereness									If true, do sphereness; else do planarity
 	 */
 	private static void updateCurvature(final RandomAccessibleInterval<FloatType> converted, 
 			final RandomAccessible<FloatType>[] gradients, 
-			final HashMap<List<Long>, SheetnessInformation> medialSurfaceCoordinatesToSheetnessInformationMap, 
+			final HashMap<List<Long>, PlanarityInformation> medialSurfaceCoordinatesToPlanarityInformationMap, 
 			final double currentActualSigma, long[] padding, long[] dimension, int scaleStep, boolean calculateSphereness) {
 
 	    //TODO: Look at tests, nearby objects can affect measurements so need to fix that somehow...maybe ensure that the object affecting doesn't pass through background?
@@ -380,16 +379,16 @@ public class SparkCurvature {
 				gradientA_RA = Views.offset(gradients[e], offset).randomAccess();
 				gradientB_RA = Views.translate(gradients[e], offset).randomAccess();
 				
-				for(Entry<List<Long>, SheetnessInformation> entry : medialSurfaceCoordinatesToSheetnessInformationMap.entrySet()) {
+				for(Entry<List<Long>, PlanarityInformation> entry : medialSurfaceCoordinatesToPlanarityInformationMap.entrySet()) {
 					List<Long> pos = entry.getKey();
-					SheetnessInformation sheetnessInformation = entry.getValue();
+					PlanarityInformation planarityInformation = entry.getValue();
 					long [] pos_array = new long[] {pos.get(0),pos.get(1),pos.get(2)};
 					
 					gradientA_RA.setPosition(pos_array);
 					gradientB_RA.setPosition(pos_array);
 					
-					sheetnessInformation.b_minus_a_normalized[d][e] = (gradientB_RA.get().get() - gradientA_RA.get().get())*norms[e];			
-					medialSurfaceCoordinatesToSheetnessInformationMap.put(pos,sheetnessInformation);
+					planarityInformation.b_minus_a_normalized[d][e] = (gradientB_RA.get().get() - gradientA_RA.get().get())*norms[e];			
+					medialSurfaceCoordinatesToPlanarityInformationMap.put(pos,planarityInformation);
 				}
 				
 			}
@@ -408,16 +407,16 @@ public class SparkCurvature {
 		//Loop over source image
 		long tic = System.currentTimeMillis();
 		double maxRnoise = 0;
-		for ( Entry<List<Long>,SheetnessInformation>entry : medialSurfaceCoordinatesToSheetnessInformationMap.entrySet()) {
+		for ( Entry<List<Long>,PlanarityInformation>entry : medialSurfaceCoordinatesToPlanarityInformationMap.entrySet()) {
 			/* TODO Is test if n == 1 and set to 1 meaningful? */
 			//Increment cursors
 			List<Long> currentMedialSurfaceCoordinate = entry.getKey();
 
 			//Increment gradients and calculate hessian
-			SheetnessInformation sheetnessInformation = entry.getValue();
+			PlanarityInformation planarityInformation = entry.getValue();
 			for (int d = 0; d < n; ++d) {
 				for (int e = d; e < n; ++e) {
-					final double hde = sheetnessInformation.b_minus_a_normalized[d][e];
+					final double hde = planarityInformation.b_minus_a_normalized[d][e];
 					hessian.set(d, e, hde);
 					hessian.set(e, d, hde);
 				}
@@ -436,11 +435,11 @@ public class SparkCurvature {
 				continue;
 			}
 			
-			//If laplacian at current voxel is the smallest it has been, then update sheetness and laplacian
+			//If laplacian at current voxel is the smallest it has been, then update planarity and laplacian
 			double laplacian = hessian.get(0,0)+ hessian.get(1,1) + hessian.get(2,2);
 			
-			//if(laplacian<sheetnessInformation.minimumLaplacian) {
-			//	if(sheetnessInformation.minimumLaplacian==0) {
+			//if(laplacian<planarityInformation.minimumLaplacian) {
+			//	if(planarityInformation.minimumLaplacian==0) {
 			//		newCount++;
 			//	}
 			//	else {
@@ -475,17 +474,17 @@ public class SparkCurvature {
 					}
 				}
 				
-				if(curvature>sheetnessInformation.curvature) {
-					if(sheetnessInformation.curvature==0) {
+				if(curvature>planarityInformation.curvature) {
+					if(planarityInformation.curvature==0) {
 						newCount++;
 					}
 					else {
 						updatedCount++;
 					}
 					
-					sheetnessInformation.minimumLaplacian = laplacian;
-					sheetnessInformation.curvature = curvature;
-					medialSurfaceCoordinatesToSheetnessInformationMap.put(currentMedialSurfaceCoordinate, sheetnessInformation);
+					planarityInformation.minimumLaplacian = laplacian;
+					planarityInformation.curvature = curvature;
+					medialSurfaceCoordinatesToPlanarityInformationMap.put(currentMedialSurfaceCoordinate, planarityInformation);
 					//System.out.println(curvature+" "+Rnoise+" "+Arrays.toString(eigenvalues));
 					
 				}
@@ -541,7 +540,7 @@ public class SparkCurvature {
 	}
 
 	/**
-	 * Calculate sheetness given input args
+	 * Calculate planarity given input args
 	 * 
 	 * @param args
 	 * @throws IOException

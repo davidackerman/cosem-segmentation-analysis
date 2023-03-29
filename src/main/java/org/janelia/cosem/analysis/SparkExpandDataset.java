@@ -566,7 +566,7 @@ public class SparkExpandDataset {
 		    dimension[1] + 2 * expansionInVoxelsCeil, dimension[2] + 2 * expansionInVoxelsCeil };
 	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
 
-	    ProcessingHelper.logMemory("about to read ");
+	    //ProcessingHelper.logMemory("about to read ");
 	    RandomAccessibleInterval<T> expandedDataset = Views.offsetInterval(
 		    Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, inputDatasetName)),
 		    paddedOffset, paddedDimension);
@@ -585,9 +585,9 @@ public class SparkExpandDataset {
 	    
 	    expandedDataset = Views.offsetInterval(expandedDataset, adjustedOffset, adjustedDimension);
 	    RandomAccess<T> expandedDatasetRA = expandedDataset.randomAccess();
-	    ProcessingHelper.logMemory("about to crop ");
+	    //ProcessingHelper.logMemory("about to crop ");
 
-	    ProcessingHelper.logMemory("about to convert ");
+	    //ProcessingHelper.logMemory("about to convert ");
 	    RandomAccessibleInterval<NativeBoolType> converted = Converters.convert(expandedDataset, (a, b) -> {
 		b.set(a.getIntegerLong() > thresholdIntensity);
 	    }, new NativeBoolType());
@@ -595,12 +595,12 @@ public class SparkExpandDataset {
 	    // RandomAccessibleInterval<NativeBoolType> convertedTemp =
 	    // ProcessingHelper.getFalsesBoolImageRAI(paddedDimension);
 
-	    ProcessingHelper.logMemory("about to create distance transform image ");
+	    //ProcessingHelper.logMemory("about to create distance transform image ");
 	    RandomAccessibleInterval<FloatType> distanceTransform = ArrayImgs.floats(adjustedDimension);
-	    ProcessingHelper.logMemory("about to create distance transform ");
+	    //ProcessingHelper.logMemory("about to create distance transform ");
 	    DistanceTransform.binaryTransform(converted, distanceTransform, DISTANCE_TYPE.EUCLIDIAN);
 	    
-	    ProcessingHelper.logMemory("about to crop ");
+	    //ProcessingHelper.logMemory("about to crop ");
 	    distanceTransform = (RandomAccessibleInterval<FloatType>) Views.offsetInterval(distanceTransform, boxOffset,
 		    dimension);
 	    RandomAccess<FloatType> distanceTransformRA = distanceTransform.randomAccess();
@@ -614,7 +614,7 @@ public class SparkExpandDataset {
 	    }
 	    //ImageJFunctions.show(distanceTransform);
 	    //ImageJFunctions.show(distanceTransform);
-	    ProcessingHelper.logMemory("about to loop ");
+	    //ProcessingHelper.logMemory("about to loop ");
 	    long newX, newY, newZ;
 	    for (long x = boxOffset[0]; x < boxOffset[0] + dimension[0]; x++) {
 		for (long y = boxOffset[1]; y < boxOffset[1] + dimension[1]; y++) {
@@ -649,7 +649,7 @@ public class SparkExpandDataset {
 		    }
 		}
 	    }
-	    ProcessingHelper.logMemory("looper ");
+	    //ProcessingHelper.logMemory("looper ");
 	    final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
 	    if (useFixedValue) {
 		final RandomAccessibleInterval<UnsignedByteType> datasetConverted = Converters.convert(dataset,

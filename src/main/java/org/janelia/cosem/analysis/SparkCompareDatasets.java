@@ -43,6 +43,7 @@ import org.kohsuke.args4j.Option;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.NumericType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
@@ -52,165 +53,189 @@ import net.imglib2.view.Views;
  * @author David Ackerman &lt;ackermand@janelia.hhmi.org&gt;
  */
 public class SparkCompareDatasets {
-	@SuppressWarnings("serial")
-	public static class Options extends AbstractOptions implements Serializable {
+    @SuppressWarnings("serial")
+    public static class Options extends AbstractOptions implements Serializable {
 
-		@Option(name = "--inputN5Path", required = true, usage = "first input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
-		private String inputN5Path = null;
-		@Option(name = "--inputN5Path2", required = false, usage = "second input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
-		private String inputN5Path2 = null;
+	@Option(name = "--inputN5Path", required = true, usage = "first input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+	private String inputN5Path = null;
+	@Option(name = "--inputN5Path2", required = false, usage = "second input N5 path, e.g. /nrs/saalfeld/heinrichl/cell/gt061719/unet/02-070219/hela_cell3_314000.n5")
+	private String inputN5Path2 = null;
 
-		@Option(name = "--inputN5DatasetNames", required = false, usage = "Comma separated list: \"firstDataset,secondDataset\"")
-		private String inputN5DatasetNames = null;
-		
-		public Options(final String[] args) {
+	@Option(name = "--inputN5DatasetNames", required = false, usage = "Comma separated list: \"firstDataset,secondDataset\"")
+	private String inputN5DatasetNames = null;
 
-			final CmdLineParser parser = new CmdLineParser(this);
-			try {
-				parser.parseArgument(args);
-				parsedSuccessfully = true;
-			} catch (final CmdLineException e) {
-				System.err.println(e.getMessage());
-				parser.printUsage(System.err);
-			}
-		}
+	@Option(name = "--compareNonzeroValues", required = false, usage = "Comma separated list: \"firstDataset,secondDataset\"")
+	private boolean compareNonzeroValues = false;
 
-		public String getInputN5Path() {
-			return inputN5Path;
-		}
-		
-		public String getInputN5Path2() {
-			return inputN5Path2;
-		}
+	public Options(final String[] args) {
 
-		public String getInputN5DatasetNames() {
-			return inputN5DatasetNames;
-		}
-
+	    final CmdLineParser parser = new CmdLineParser(this);
+	    try {
+		parser.parseArgument(args);
+		parsedSuccessfully = true;
+	    } catch (final CmdLineException e) {
+		System.err.println(e.getMessage());
+		parser.printUsage(System.err);
+	    }
 	}
 
-	public static final <T extends NativeType<T>>boolean compareDatasets (
-			final JavaSparkContext sc,
-			final String n5Path1,
-			final String n5Path2,
-			final String datasetName1,
-			final String datasetName2,
-			final List<BlockInformation> blockInformationList) throws IOException {
+	public String getInputN5Path() {
+	    return inputN5Path;
+	}
 
-		final N5Reader n5Reader1 = new N5FSReader(n5Path1);
-		final N5Reader n5Reader2 = new N5FSReader(n5Path2);
+	public String getInputN5Path2() {
+	    return inputN5Path2;
+	}
 
-		DataType dataType1 = n5Reader1.getDatasetAttributes(datasetName1).getDataType();
-		DataType dataType2 = n5Reader2.getDatasetAttributes(datasetName1).getDataType();
-		if(!dataType1.equals(dataType2)) {
-		    System.out.println("Different data types!");
-		    return false;
+	public String getInputN5DatasetNames() {
+	    return inputN5DatasetNames;
+	}
+
+	public Boolean getCompareNonzeroValues() {
+	    return compareNonzeroValues;
+	}
+
+    }
+
+    public static final <T extends NumericType<T>, U extends NumericType<U>> boolean compareDatasets(final JavaSparkContext sc,
+	    final String n5Path1, final String n5Path2, final String datasetName1, final String datasetName2,
+	    final boolean compareNonzeroValues, final List<BlockInformation> blockInformationList) throws IOException {
+
+	final N5Reader n5Reader1 = new N5FSReader(n5Path1);
+	final N5Reader n5Reader2 = new N5FSReader(n5Path2);
+
+	DataType dataType1 = n5Reader1.getDatasetAttributes(datasetName1).getDataType();
+	DataType dataType2 = n5Reader2.getDatasetAttributes(datasetName2).getDataType();
+	if (!compareNonzeroValues) {
+	    if (!dataType1.equals(dataType2)) {
+		System.out.println("Different data types!");
+		return false;
+	    }
+	}
+	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
+	JavaRDD<Map<List<Long>, Boolean>> javaRDD = rdd.map(blockInformation -> {
+	    final long[][] gridBlock = blockInformation.gridBlock;
+	    final N5Reader n5BlockReader = new N5FSReader(n5Path1);
+	    final N5Reader n5BlockReader2 = new N5FSReader(n5Path2);
+	    long[] offset = gridBlock[0];
+	    long[] dimension = gridBlock[1];
+
+	    IntervalView<T> data1 = Views.offsetInterval(
+		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName1), offset, dimension);
+
+	    IntervalView<U> data2 = Views.offsetInterval(
+		    (RandomAccessibleInterval<U>) N5Utils.open(n5BlockReader2, datasetName2), offset, dimension);
+
+	    Cursor<T> data1Cursor = data1.cursor();
+	    Cursor<U> data2Cursor = data2.cursor();
+	    boolean areEqual = true;
+	    if (compareNonzeroValues) {
+		T tZero = data1Cursor.get().createVariable();
+		tZero.setZero();
+		U uZero = data2Cursor.get().createVariable();
+		uZero.setZero();
+		while (data1Cursor.hasNext()) {
+		    data1Cursor.next();
+		    data2Cursor.next();
+		    if (!(data1Cursor.get().valueEquals(tZero) == data2Cursor.get().valueEquals(uZero)) ) {
+			System.out.println((offset[0] + data1Cursor.getIntPosition(0)) + " "
+				+ (offset[1] + data1Cursor.getIntPosition(1)) + " "
+				+ (offset[2] + data1Cursor.getIntPosition(2)));
+			areEqual = false;
+		    }
 		}
-		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
-		JavaRDD<Map<List<Long>,Boolean>> javaRDD = rdd.map(blockInformation -> {
-			final long [][] gridBlock = blockInformation.gridBlock;
-			final N5Reader n5BlockReader = new N5FSReader(n5Path1);
-			final N5Reader n5BlockReader2 = new N5FSReader(n5Path2);
-			long[] offset = gridBlock[0];
-			long[] dimension = gridBlock[1];
-			
-			IntervalView<T> data1 =  Views.offsetInterval((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName1)
-					,offset, dimension);
-				
-			IntervalView<T> data2 =  Views.offsetInterval((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader2, datasetName2)
-					,offset, dimension);
-			
-			Cursor<T> data1Cursor = data1.cursor();
-			Cursor<T> data2Cursor = data2.cursor();
-			boolean areEqual = true;
-			while(data1Cursor.hasNext() ) {
-				data1Cursor.next();
-				data2Cursor.next();
-				if(!data1Cursor.get().valueEquals(data2Cursor.get())) {
-					System.out.println((offset[0]+data1Cursor.getIntPosition(0))+" "+(offset[1]+data1Cursor.getIntPosition(1)) + " "+(offset[2]+data1Cursor.getIntPosition(2)));
-					areEqual = false;
-				}
-			}
-			
-			Map<List<Long>, Boolean> mapping = new HashMap<List<Long>,Boolean>();
-			mapping.put(Arrays.asList(offset[0],offset[1],offset[2]), areEqual);
-			return mapping;
-		});
-		
-		Map<List<Long>, Boolean> areEqualMap = javaRDD.reduce((a,b) -> {a.putAll(b); return a; });
-		
-		boolean areEqual = true;
-		for(List<Long> key : areEqualMap.keySet()) {
-			if(!areEqualMap.get(key)) {
-				System.out.println(key);
-				areEqual = false;
-			}
+	    } else {
+		while (data1Cursor.hasNext()) {
+		    data1Cursor.next();
+		    data2Cursor.next();
+		    if (!data1Cursor.get().equals(data2Cursor.get())) {
+			System.out.println((offset[0] + data1Cursor.getIntPosition(0)) + " "
+				+ (offset[1] + data1Cursor.getIntPosition(1)) + " "
+				+ (offset[2] + data1Cursor.getIntPosition(2)));
+			areEqual = false;
+		    }
 		}
-		
-		return areEqual;
+	    }
+	    Map<List<Long>, Boolean> mapping = new HashMap<List<Long>, Boolean>();
+	    mapping.put(Arrays.asList(offset[0], offset[1], offset[2]), areEqual);
+	    return mapping;
+	});
+
+	Map<List<Long>, Boolean> areEqualMap = javaRDD.reduce((a, b) -> {
+	    a.putAll(b);
+	    return a;
+	});
+
+	boolean areEqual = true;
+	for (List<Long> key : areEqualMap.keySet()) {
+	    if (!areEqualMap.get(key)) {
+		System.out.println(key);
+		areEqual = false;
+	    }
 	}
 
-	public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
-			final String inputN5DatasetName) throws IOException {
-		//Get block attributes
-		N5Reader n5Reader = new N5FSReader(inputN5Path);
-		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
-		final int[] blockSize = attributes.getBlockSize();
-		final long[] outputDimensions = attributes.getDimensions();
-		
-		//Build list
-		List<long[][]> gridBlockList = Grid.create(outputDimensions, blockSize);
-		List<BlockInformation> blockInformationList = new ArrayList<BlockInformation>();
-		for (int i = 0; i < gridBlockList.size(); i++) {
-			long[][] currentGridBlock = gridBlockList.get(i);
-			blockInformationList.add(new BlockInformation(currentGridBlock, null, null));
-		}
-		return blockInformationList;
+	return areEqual;
+    }
+
+    public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
+	    final String inputN5DatasetName) throws IOException {
+	// Get block attributes
+	N5Reader n5Reader = new N5FSReader(inputN5Path);
+	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
+	final int[] blockSize = attributes.getBlockSize();
+	final long[] outputDimensions = attributes.getDimensions();
+
+	// Build list
+	List<long[][]> gridBlockList = Grid.create(outputDimensions, blockSize);
+	List<BlockInformation> blockInformationList = new ArrayList<BlockInformation>();
+	for (int i = 0; i < gridBlockList.size(); i++) {
+	    long[][] currentGridBlock = gridBlockList.get(i);
+	    blockInformationList.add(new BlockInformation(currentGridBlock, null, null));
 	}
+	return blockInformationList;
+    }
 
-	/**
-	 * 
-	 * @param inputN5Path  Path to first dataset
-	 * @param inputN5Path2 Path to second dataset
-	 * @param datasetNames Dataset names
-	 * @return
-	 * @throws IOException
-	 */
-	public static boolean setupSparkAndCompare(String inputN5Path1, String inputN5Path2, String dataset1) throws IOException {
-	    return setupSparkAndCompare(inputN5Path1, inputN5Path2, dataset1, dataset1); //same dataset names
-	}
+    /**
+     * 
+     * @param inputN5Path  Path to first dataset
+     * @param inputN5Path2 Path to second dataset
+     * @param datasetNames Dataset names
+     * @return
+     * @throws IOException
+     */
+    public static boolean setupSparkAndCompare(String inputN5Path1, String inputN5Path2, String dataset1)
+	    throws IOException {
+	return setupSparkAndCompare(inputN5Path1, inputN5Path2, dataset1, dataset1, false); // same dataset names
+    }
 
-	public static boolean setupSparkAndCompare(String inputN5Path1, String inputN5Path2, String dataset1, String dataset2) throws IOException {
-		final SparkConf conf = new SparkConf().setAppName("SparkCompareDatasets");
-			//Create block information list
-			List<BlockInformation> blockInformationList = buildBlockInformationList(inputN5Path1, dataset1);
-			JavaSparkContext sc = new JavaSparkContext(conf);
-			
-			boolean areEqual = compareDatasets(
-					sc,
-					inputN5Path1,
-					inputN5Path2,
-					dataset1,
-					dataset2,
-					blockInformationList);
-			sc.close();
+    public static boolean setupSparkAndCompare(String inputN5Path1, String inputN5Path2, String dataset1,
+	    String dataset2, boolean compareNonzeroValues) throws IOException {
+	final SparkConf conf = new SparkConf().setAppName("SparkCompareDatasets");
+	// Create block information list
+	List<BlockInformation> blockInformationList = buildBlockInformationList(inputN5Path1, dataset1);
+	JavaSparkContext sc = new JavaSparkContext(conf);
 
-			return areEqual;
-	}
-	
-	public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {
+	boolean areEqual = compareDatasets(sc, inputN5Path1, inputN5Path2, dataset1, dataset2, compareNonzeroValues,
+		blockInformationList);
+	sc.close();
 
-		final Options options = new Options(args);
+	return areEqual;
+    }
 
-		if (!options.parsedSuccessfully)
-			return;
+    public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {
 
+	final Options options = new Options(args);
 
-		String inputN5Path1 = options.getInputN5Path();
-		String inputN5Path2 = options.getInputN5Path2() != null ? options.getInputN5Path2() : inputN5Path1;
-		String [] datasetNames = options.getInputN5DatasetNames().split(",");
-		boolean areEqual = setupSparkAndCompare(inputN5Path1, inputN5Path2, datasetNames[0], datasetNames[1]);
-	
-		System.out.println("Are they equal? " + areEqual);
-	}
+	if (!options.parsedSuccessfully)
+	    return;
+
+	String inputN5Path1 = options.getInputN5Path();
+	String inputN5Path2 = options.getInputN5Path2() != null ? options.getInputN5Path2() : inputN5Path1;
+	String[] datasetNames = options.getInputN5DatasetNames().split(",");
+	boolean compareNonzeroValues = options.getCompareNonzeroValues();
+	boolean areEqual = setupSparkAndCompare(inputN5Path1, inputN5Path2, datasetNames[0], datasetNames[1],
+		compareNonzeroValues);
+
+	System.out.println("Are they equal? " + areEqual);
+    }
 }

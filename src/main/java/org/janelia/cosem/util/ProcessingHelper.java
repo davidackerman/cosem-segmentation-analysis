@@ -16,7 +16,7 @@ import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
-
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import ch.qos.logback.core.Context;
 import net.imglib2.Cursor;
 import net.imglib2.RandomAccess;
@@ -123,12 +123,12 @@ public class ProcessingHelper {
 	}
 
 	public static DataType createDatasetUsingTemplateDataset(String templateN5Path, String templateDatasetName, String newN5Path, String newDatasetName, DataType dataType) throws IOException {
-		final N5Reader n5Reader = new N5FSReader(templateN5Path);
+		final N5Reader n5Reader = N5GenericReader(templateN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(templateDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();
 
-		final N5Writer n5Writer = new N5FSWriter(newN5Path);
+		final N5Writer n5Writer = N5GenericWriter(newN5Path);
 		n5Writer.createDataset(newDatasetName, dimensions, blockSize, dataType == null ? attributes.getDataType() : dataType,
 				new GzipCompression());
 		double[] pixelResolution = IOHelper.getResolution(n5Reader, templateDatasetName);
@@ -138,7 +138,7 @@ public class ProcessingHelper {
 	}
 	
 	public static <T extends NumericType<T>> IntervalView< T > getOffsetIntervalExtendZeroRAI(String n5Path, String dataset, long [] offset, long [] dimension) throws IOException {
-	    final N5FSReader n5Reader = new N5FSReader(n5Path);
+	    final N5Reader n5Reader = N5GenericReader(n5Path);
     	    if( Files.exists(Paths.get(n5Path+"/"+dataset + "/s0")) ){ //in case is multiscale
     		dataset = dataset+"/s0";
     	    }

@@ -105,6 +105,10 @@ public class SparkCalculateThicknessHistograms {
 	public String getOutputDirectory() {
 	    if (outputDirectory == null) {
 		outputDirectory = inputN5Path.split(".n5")[0] + "_results";
+		if (outputDirectory.contains("s3://")) {
+		    outputDirectory = outputDirectory.replace("s3://janelia-cosem-datasets-dev/","/nrs/cellmap/");
+		    outputDirectory = outputDirectory.replace("s3://janelia-cosem-datasets/","/nrs/cellmap/");
+		}
 	    }
 	    return outputDirectory;
 	}

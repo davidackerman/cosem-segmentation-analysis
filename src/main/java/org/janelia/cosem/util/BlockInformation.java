@@ -12,10 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.hadoop.hdfs.server.namenode.corrupt_005ffiles_jsp;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
 import org.janelia.saalfeldlab.n5.N5Reader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 
 @SuppressWarnings("serial")
 public class BlockInformation implements Serializable {
@@ -81,7 +80,7 @@ public class BlockInformation implements Serializable {
     public static List<BlockInformation> buildBlockInformationList(String inputN5Path, String inputN5DatasetName)
 	    throws IOException {
 	// Get block attributes
-	N5Reader n5Reader = new N5FSReader(inputN5Path);
+	N5Reader n5Reader = N5GenericReader(inputN5Path);
 	if (Files.exists(Paths.get(inputN5Path + "/" + inputN5DatasetName + "/s0"))) { // in case is multiscale
 	    inputN5DatasetName = inputN5DatasetName + "/s0";
 	}
@@ -97,7 +96,7 @@ public class BlockInformation implements Serializable {
     public static List<BlockInformation> buildBlockInformationListFromExistingChunks(String inputN5Path,
 	    String inputN5DatasetName) throws IOException {
 	// Get block attributes
-	N5Reader n5Reader = new N5FSReader(inputN5Path);
+	N5Reader n5Reader = N5GenericReader(inputN5Path);
 	if (Files.exists(Paths.get(inputN5Path + "/" + inputN5DatasetName + "/s0"))) { // in case is multiscale
 	    inputN5DatasetName = inputN5DatasetName + "/s0";
 	}

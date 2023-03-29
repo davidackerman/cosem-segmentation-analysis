@@ -35,7 +35,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -143,7 +143,7 @@ public class SparkSeparateRibosomes {
 			final String inputDatasetName, final String n5OutputPath, Broadcast<Map<Long, Integer>> broadcastedRibosomeIDtoInformationMap,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(n5Path);
+		final N5Reader n5Reader = N5GenericReader(n5Path);
 
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 
@@ -167,7 +167,7 @@ public class SparkSeparateRibosomes {
 			final long[][] gridBlock = blockInformation.gridBlock;
 			long[] offset = gridBlock[0];//new long[] {64,64,64};//gridBlock[0];////
 			long[] dimension = gridBlock[1];
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader = N5GenericReader(n5Path);
 			
 			Map<Long, Integer> ribosomeIDtoInformationMap = broadcastedRibosomeIDtoInformationMap.value();
 
@@ -222,7 +222,7 @@ public class SparkSeparateRibosomes {
 			}
 			
 			
-			final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
+			final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 			
 			N5Utils.saveBlock(cytosolic, n5BlockWriter, cytosolicString, gridBlock[2]);
 			N5Utils.saveBlock(nuclear, n5BlockWriter, nuclearString, gridBlock[2]);

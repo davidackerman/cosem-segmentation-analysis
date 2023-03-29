@@ -36,7 +36,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -133,19 +133,19 @@ public class SparkCreateValidationDatasets {
 		organelleToIDs.put("microtubules",Arrays.asList(30, 36));
 		organelleToIDs.put("ribosomes",Arrays.asList(34));
 		 
-		final N5Reader n5ReaderTraining = new N5FSReader(n5PathTrainingData);
+		final N5Reader n5ReaderTraining = N5GenericReader(n5PathTrainingData);
 		List<String> cropNames = Arrays.asList("cropRight","cropLeft","cropUp","cropDown","cropFront","cropBack","whole");
 
 		for(int i=0; i<cropNames.size(); i++) {
 
 			String n5OutputTraining = outputPath+"/validation/"+cropNames.get(i)+".n5";
-			final N5Writer n5WriterTraining = new N5FSWriter(n5OutputTraining);
+			final N5Writer n5WriterTraining = N5GenericWriter(n5OutputTraining);
 			
 			String n5OutputRefinedPredictions = outputPath+"/refinedPredictions/"+cropNames.get(i)+".n5";
-			final N5Writer n5WriterRefinedPredictions = new N5FSWriter(n5OutputRefinedPredictions);
+			final N5Writer n5WriterRefinedPredictions = N5GenericWriter(n5OutputRefinedPredictions);
 			
 			String n5OutputRawPredictions = outputPath+"/rawPredictions/"+cropNames.get(i)+".n5";
-			final N5Writer n5WriterRawPredictions = new N5FSWriter(n5OutputRawPredictions);
+			final N5Writer n5WriterRawPredictions = N5GenericWriter(n5OutputRawPredictions);
 			double[] pixelResolutionTraining = null;
 			int[] blockSizeTraining = null;
 			long[] offsetTraining =null;
@@ -196,7 +196,7 @@ public class SparkCreateValidationDatasets {
 							blockInformation.gridBlock[0][2]+offsetTrainingInVoxels[2]
 					};
 					final long [] dimension = blockInformation.gridBlock[1];
-					final N5Reader n5ReaderLocal = new N5FSReader(n5PathTrainingData);
+					final N5Reader n5ReaderLocal = N5GenericReader(n5PathTrainingData);
 					
 					final RandomAccessibleInterval<UnsignedLongType> source = Views.offsetInterval((RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5ReaderLocal, organellePathInN5), offset, dimension);
 					final RandomAccessibleInterval<UnsignedByteType> sourceConverted = Converters.convert(
@@ -206,7 +206,7 @@ public class SparkCreateValidationDatasets {
 								b.set(ids.contains(id) ? 255 : 0 );
 							},
 							new UnsignedByteType());
-					final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputTraining);
+					final N5Writer n5BlockWriter = N5GenericWriter(n5OutputTraining);
 					
 					N5Utils.saveBlock(sourceConverted, n5BlockWriter, organelleRibosomeAdjustedNameTraining, blockInformation.gridBlock[2]);
 							
@@ -247,7 +247,7 @@ public class SparkCreateValidationDatasets {
 	
 					final String organelleRibosomeAdjustedName = (organelle=="ribosomes" && n5PredictionsPath==n5PathRefinedPredictions)? "ribosomes_centers":organelle;
 	
-					final N5Reader n5ReaderPredictions = new N5FSReader(n5PredictionsPath);		
+					final N5Reader n5ReaderPredictions = N5GenericReader(n5PredictionsPath);		
 					double[] pixelResolutionPredictions = IOHelper.getResolution(n5ReaderPredictions, organelleRibosomeAdjustedName);
 					double resolutionRatio = pixelResolutionTraining[0]/pixelResolutionPredictions[0];
 					long [] dimensionsPredictions = new long [] {(long) (dimensionsTraining[0]*resolutionRatio),(long) (dimensionsTraining[1]*resolutionRatio),(long) (dimensionsTraining[2]*resolutionRatio)};
@@ -271,7 +271,7 @@ public class SparkCreateValidationDatasets {
 								blockInformation.gridBlock[0][2]+offsetInVoxels[2]
 						};
 						final long [] dimension = blockInformation.gridBlock[1];
-						final N5Reader n5ReaderLocal = new N5FSReader(n5PredictionsPath);
+						final N5Reader n5ReaderLocal = N5GenericReader(n5PredictionsPath);
 						final long threshold = n5PredictionsPath==n5PathRawPredictions ? 127 : 1 ;
 						final RandomAccessibleInterval<T> source = Views.offsetInterval((RandomAccessibleInterval<T>)N5Utils.open(n5ReaderLocal, organelleRibosomeAdjustedName), offset, dimension);
 						final RandomAccessibleInterval<UnsignedByteType> sourceConverted = Converters.convert(
@@ -280,7 +280,7 @@ public class SparkCreateValidationDatasets {
 									b.set(a.getIntegerLong()>=threshold ? 255 : 0 );
 								},
 								new UnsignedByteType());
-						final N5FSWriter n5BlockWriter = new N5FSWriter(n5PredictionsPath == n5PathRawPredictions ? n5OutputRawPredictions : n5OutputRefinedPredictions);
+						final N5Writer n5BlockWriter = N5GenericWriter(n5PredictionsPath == n5PathRawPredictions ? n5OutputRawPredictions : n5OutputRefinedPredictions);
 						N5Utils.saveBlock(sourceConverted, n5BlockWriter, organelleRibosomeAdjustedName, blockInformation.gridBlock[2]);
 										
 					});

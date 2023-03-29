@@ -31,7 +31,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -140,7 +140,7 @@ public class SparkLabelPredictionWithConnectedComponents {
 			final String connectedComponentsDatasetName, final String outputN5Path, double thresholdIntensityCutoff, List<BlockInformation> blockInformationList) throws IOException {
 					
 		// Create output dataset
-		final N5Reader n5Reader = new N5FSReader(connectedComponentsN5Path);
+		final N5Reader n5Reader = N5GenericReader(connectedComponentsN5Path);
 		DatasetAttributes attributes = n5Reader.getDatasetAttributes(connectedComponentsDatasetName);
 		final String outputN5DatasetName = predictionDatasetName+"_labeledWith_"+connectedComponentsDatasetName;
 		DataType dataType = attributes.getDataType();
@@ -152,8 +152,8 @@ public class SparkLabelPredictionWithConnectedComponents {
 			// Get information for reading in/writing current block
 			long[][] gridBlock = currentBlockInformation.gridBlock;
 			
-			final N5Reader predictionN5ReaderLocal = new N5FSReader(predictionN5Path);
-			final N5Reader connectedComponentsReaderLocal = new N5FSReader(connectedComponentsN5Path);
+			final N5Reader predictionN5ReaderLocal = N5GenericReader(predictionN5Path);
+			final N5Reader connectedComponentsReaderLocal = N5GenericReader(connectedComponentsN5Path);
 
 			final double [] predictionPixelResolution = IOHelper.getResolution(predictionN5ReaderLocal, predictionDatasetName);
 			final double [] connectedComponentsPixelResolution = IOHelper.getResolution(connectedComponentsReaderLocal, connectedComponentsDatasetName);
@@ -209,7 +209,7 @@ public class SparkLabelPredictionWithConnectedComponents {
 			}
 			
 			// Write out output to temporary n5 stack
-			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 		});

@@ -39,7 +39,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -142,13 +142,13 @@ public class SparkExpandFilaments {
 			final String inputDatasetName, final String n5OutputPath, final String outputDatasetName, final double innerRadiusInNm, final double outerRadiusInNm,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(n5Path);
+		final N5Reader n5Reader = N5GenericReader(n5Path);
 
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();
 
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
+		final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
 		
 		double [] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
 		n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT64, new GzipCompression());
@@ -168,7 +168,7 @@ public class SparkExpandFilaments {
 			long[] dimension = gridBlock[1];
 			long[] paddedOffset = new long[]{offset[0]-padding, offset[1]-padding, offset[2]-padding};
 			long[] paddedDimension = new long []{dimension[0]+2*padding, dimension[1]+2*padding, dimension[2]+2*padding};
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader = N5GenericReader(n5Path);
 			
 
 			RandomAccessibleInterval<T> filamentCenterline = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName)),paddedOffset, paddedDimension);	
@@ -210,7 +210,7 @@ public class SparkExpandFilaments {
 			
 			//Write it out
 			IntervalView<UnsignedLongType> output = Views.offsetInterval(expandedFilament,new long[]{padding,padding,padding}, dimension);
-			final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
+			final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 			N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 						
 		});

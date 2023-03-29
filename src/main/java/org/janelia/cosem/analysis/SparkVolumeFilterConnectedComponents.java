@@ -34,7 +34,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -120,13 +120,13 @@ public class SparkVolumeFilterConnectedComponents {
 			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, Set<Long> idsToKeep,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
-				final N5Reader n5Reader = new N5FSReader(inputN5Path);
+				final N5Reader n5Reader = N5GenericReader(inputN5Path);
 				final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 				final int[] blockSize = attributes.getBlockSize();
 				final double[] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
 				final float minimumVolumeCutoffInVoxels = (float) (minimumVolumeCutoff/Math.pow(pixelResolution[0],3));
 				// Create output dataset
-				final N5Writer n5Writer = new N5FSWriter(inputN5Path);
+				final N5Writer n5Writer = N5GenericWriter(inputN5Path);
 				n5Writer.createGroup(outputN5DatasetName);
 				n5Writer.createDataset(outputN5DatasetName, attributes.getDimensions(), blockSize,
 						attributes.getDataType(), attributes.getCompression());
@@ -143,7 +143,7 @@ public class SparkVolumeFilterConnectedComponents {
 					long[] dimension = gridBlock[1];
 			
 					// Read in source block
-					final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+					final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
 					Cursor<T> objectsCursor = Views.flatIterable(objects).cursor();
 					
@@ -172,7 +172,7 @@ public class SparkVolumeFilterConnectedComponents {
 					long[] dimension = gridBlock[1];
 			
 					// Read in source block
-					final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+					final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),offset, dimension); 
 					Cursor<T> objectsCursor = Views.flatIterable(objects).cursor();
 					
@@ -184,7 +184,7 @@ public class SparkVolumeFilterConnectedComponents {
 						}
 					}
 					// Write out output to temporary n5 stack
-					final N5Writer n5WriterLocal = new N5FSWriter(inputN5Path);
+					final N5Writer n5WriterLocal = N5GenericWriter(inputN5Path);
 					N5Utils.saveBlock(objects, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 				});
 		

@@ -45,7 +45,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -137,7 +137,7 @@ public class SparkErosionAndDilation {
     public static final <T extends IntegerType<T> & NativeType<T>> void erode(
 	    final JavaSparkContext sc, final String n5Path, final String inputDatasetName, final String n5OutputPath,
 	    String outputDatasetName, float distance, final List<BlockInformation> blockInformationList) throws IOException {
-	final N5Reader n5Reader = new N5FSReader(n5Path);		
+	final N5Reader n5Reader = N5GenericReader(n5Path);		
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 
 	// Create output
@@ -194,7 +194,7 @@ public class SparkErosionAndDilation {
 	    source = Views.offsetInterval(source, new long[] { padding, padding, padding },
 		    dimension);
 
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(source, n5BlockWriter, erosionName, gridBlock[2]);
 	   
 	});
@@ -205,7 +205,7 @@ public class SparkErosionAndDilation {
     public static final <T extends IntegerType<T> & NativeType<T>> void dilate(
 	    final JavaSparkContext sc, final String n5Path, final String inputDatasetName, final String n5OutputPath,
 	    String outputDatasetName, float distance, boolean keepProtrusions, final List<BlockInformation> blockInformationList) throws IOException {
-	final N5Reader n5Reader = new N5FSReader(n5Path);		
+	final N5Reader n5Reader = N5GenericReader(n5Path);		
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 
 	// Create output
@@ -301,7 +301,7 @@ public class SparkErosionAndDilation {
 	    mainBodiesRAI = Views.offsetInterval(mainBodiesRAI, new long[] { padding, padding, padding },
 		    dimension);
 
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(source, n5BlockWriter, protrusions, gridBlock[2]);
 	    N5Utils.saveBlock(mainBodiesRAI, n5BlockWriter, mainBodies, gridBlock[2]);
 	   

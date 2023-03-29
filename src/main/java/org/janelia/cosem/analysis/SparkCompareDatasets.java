@@ -33,7 +33,7 @@ import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
@@ -101,8 +101,8 @@ public class SparkCompareDatasets {
 	    final String n5Path1, final String n5Path2, final String datasetName1, final String datasetName2,
 	    final boolean compareNonzeroValues, final List<BlockInformation> blockInformationList) throws IOException {
 
-	final N5Reader n5Reader1 = new N5FSReader(n5Path1);
-	final N5Reader n5Reader2 = new N5FSReader(n5Path2);
+	final N5Reader n5Reader1 = N5GenericReader(n5Path1);
+	final N5Reader n5Reader2 = N5GenericReader(n5Path2);
 
 	DataType dataType1 = n5Reader1.getDatasetAttributes(datasetName1).getDataType();
 	DataType dataType2 = n5Reader2.getDatasetAttributes(datasetName2).getDataType();
@@ -115,8 +115,8 @@ public class SparkCompareDatasets {
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 	JavaRDD<Map<List<Long>, Boolean>> javaRDD = rdd.map(blockInformation -> {
 	    final long[][] gridBlock = blockInformation.gridBlock;
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path1);
-	    final N5Reader n5BlockReader2 = new N5FSReader(n5Path2);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path1);
+	    final N5Reader n5BlockReader2 = N5GenericReader(n5Path2);
 	    long[] offset = gridBlock[0];
 	    long[] dimension = gridBlock[1];
 
@@ -180,7 +180,7 @@ public class SparkCompareDatasets {
     public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
 	    final String inputN5DatasetName) throws IOException {
 	// Get block attributes
-	N5Reader n5Reader = new N5FSReader(inputN5Path);
+	N5Reader n5Reader = N5GenericReader(inputN5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 	final int[] blockSize = attributes.getBlockSize();
 	final long[] outputDimensions = attributes.getDimensions();

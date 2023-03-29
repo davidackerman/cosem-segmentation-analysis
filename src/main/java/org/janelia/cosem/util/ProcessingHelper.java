@@ -11,7 +11,7 @@ import java.util.List;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -182,10 +182,11 @@ public class ProcessingHelper {
 		return rai.cursor();
 	}
 	
-	public static DatasetAttributes getDatasetAttributes(N5FSReader n5Reader, String dataset) throws IOException {
-	    if( Files.exists(Paths.get(n5Reader.getBasePath()+"/"+dataset + "/s0")) ){ //in case is multiscale
+	public static DatasetAttributes getDatasetAttributes(N5Reader n5Reader, String dataset) throws IOException {
+	    if (n5Reader.datasetExists(dataset + "/s0")){ //in case is multiscale
     		dataset = dataset+"/s0";
     	    }
+	    boolean t = n5Reader.datasetExists(dataset);
 	    
 	    return n5Reader.getDatasetAttributes(dataset);
 	}

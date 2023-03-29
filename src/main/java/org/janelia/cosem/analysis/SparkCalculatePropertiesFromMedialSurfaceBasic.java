@@ -38,7 +38,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -182,7 +182,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 
 	String outputDatasetName = datasetName + "_medialSurfaceDistanceTransform";
 	// General information
-	final int[] blockSize = new N5FSReader(n5Path).getDatasetAttributes(datasetName).getBlockSize();
+	final int[] blockSize = N5GenericReader(n5Path).getDatasetAttributes(datasetName).getBlockSize();
 	ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, datasetName, n5OutputPath, outputDatasetName,
 		DataType.FLOAT32);
 
@@ -193,7 +193,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 	    final long[][] gridBlock = blockInformation.gridBlock;
 	    final long[] offset = gridBlock[0];
 	    final long[] dimension = gridBlock[1];
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 	    // Get correctly padded distance transform first
 	    RandomAccessibleInterval<T> segmentation = (RandomAccessibleInterval<T>) N5Utils
@@ -237,7 +237,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 		    dimension);
 
 	    // Write out volume averaged sheetness
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 
 	    return blockInformation;
@@ -305,7 +305,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 	    final List<BlockInformation> blockInformationList) throws IOException {
 
 	// General information
-	final N5Reader n5Reader = new N5FSReader(n5Path);
+	final N5Reader n5Reader = N5GenericReader(n5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName);
 	final int[] blockSize = attributes.getBlockSize();
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, datasetName);
@@ -360,7 +360,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 		    sheetnessSumRA, countsRA, voxelVolume, voxelFaceArea);
 
 	    // Write out volume averaged sheetness
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 	    return sheetnessAndThicknessHistogram;
 	});
@@ -393,7 +393,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 	    final String n5OutputPath, final List<BlockInformation> blockInformationList) throws IOException {
 
 	// General information
-	final N5Reader n5Reader = new N5FSReader(n5OutputPath);
+	final N5Reader n5Reader = N5GenericReader(n5OutputPath);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName);
 	final long[] dimensions = attributes.getDimensions();
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, datasetName);
@@ -410,7 +410,7 @@ public class SparkCalculatePropertiesFromMedialSurfaceBasic {
 	    final long[] paddedOffset = blockInformation.getPaddedOffset(1);
 	    final long[] paddedDimension = blockInformation.getPaddedDimension(1);
 
-	    final N5Reader n5BlockReader = new N5FSReader(n5OutputPath);
+	    final N5Reader n5BlockReader = N5GenericReader(n5OutputPath);
 
 	    // Get corresponding medial surface and sheetness
 	    RandomAccess<UnsignedByteType> sheetnessRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,

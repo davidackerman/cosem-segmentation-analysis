@@ -40,7 +40,7 @@ import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -165,14 +165,14 @@ public class SparkIDFilter {
 			final Set<Long> idsToDelete,
 			final List<BlockInformation> blockInformationList) throws IOException{
 		
-			final N5Reader n5Reader = new N5FSReader(n5Path);
+			final N5Reader n5Reader = N5GenericReader(n5Path);
 			final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 			JavaRDD<Map<Long,Long>> javaRDDmaps = rdd.map(currentBlockInformation -> {
 				final long [][] gridBlock = currentBlockInformation.gridBlock;
 				final long[] paddedOffset = new long [] {gridBlock[0][0]-1, gridBlock[0][1]-1, gridBlock[0][2]-1};
 				final long[] paddedDimension = new long [] {gridBlock[1][0]+2, gridBlock[1][1]+2, gridBlock[1][2]+2};;
 				HashMap<Long, Long> adjacentIDtoParentID = new HashMap<Long,Long>();
-				final N5Reader n5BlockReader = new N5FSReader(n5Path);
+				final N5Reader n5BlockReader = N5GenericReader(n5Path);
 				boolean show=false;
 				if(show) new ImageJ();
 				final RandomAccessibleInterval<T> source = Views.offsetInterval(Views.extendZero(
@@ -223,7 +223,7 @@ public class SparkIDFilter {
 			final Integer relabelWithID,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(n5Path);
+		final N5Reader n5Reader = N5GenericReader(n5Path);
 
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName);
 		final long[] dimensions = attributes.getDimensions();
@@ -242,7 +242,7 @@ public class SparkIDFilter {
 		
 		rdd.foreach(blockInformation -> {
 			final long [][] gridBlock = blockInformation.gridBlock;
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader = N5GenericReader(n5Path);
 			final IntervalView<T> source = Views.offsetInterval(
 					(RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, datasetName), gridBlock[0],gridBlock[1]);
 			Cursor<T> sourceCursor = source.cursor();
@@ -261,7 +261,7 @@ public class SparkIDFilter {
 					}
 				}
 			}
-			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+			final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 			N5Utils.saveBlock(source, n5BlockWriter, datasetName + suffix, gridBlock[2]);
 		});
 	}
@@ -269,7 +269,7 @@ public class SparkIDFilter {
 	public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
 			final String inputN5DatasetName) throws IOException {
 		//Get block attributes
-		N5Reader n5Reader = new N5FSReader(inputN5Path);
+		N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] outputDimensions = attributes.getDimensions();

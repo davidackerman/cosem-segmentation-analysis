@@ -39,7 +39,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -147,14 +147,14 @@ public class SparkCurvature {
 			final List<BlockInformation> blockInformationList) throws IOException {
 
 		//Read in input block information
-		final N5Reader n5Reader = new N5FSReader(n5Path);
+		final N5Reader n5Reader = N5GenericReader(n5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();
 		final double [] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
 
 		//Create output
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);	
+		final N5Writer n5Writer = N5GenericWriter(n5OutputPath);	
 		String finalOutputDatasetName = calculateSphereness ? outputDatasetName+"_spherenessAtMedialSurface" : outputDatasetName+"_planarityAtMedialSurface";
 		n5Writer.createDataset(finalOutputDatasetName, dimensions, blockSize, DataType.FLOAT32, new GzipCompression());
 		n5Writer.setAttribute(finalOutputDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
@@ -177,7 +177,7 @@ public class SparkCurvature {
 			int padding = sizes[0]+2;//Since need extra of 1 around each voxel for curvature
 			long[] paddedOffset = new long[]{offset[0]-padding, offset[1]-padding, offset[2]-padding};
 			long[] paddedDimension = new long []{dimension[0]+2*padding, dimension[1]+2*padding, dimension[2]+2*padding};
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 			//Binarize segmentation data and read in medial surface info
 			RandomAccessibleInterval<T> source = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, inputDatasetName);
@@ -227,7 +227,7 @@ public class SparkCurvature {
 				curvatureOutput = Views.offsetInterval(ArrayImgs.floats(dimension),new long[]{0,0,0}, dimension);
 			}
 			
-			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+			final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 			N5Utils.saveBlock(curvatureOutput, n5BlockWriter, finalOutputDatasetName, gridBlock[2]);
 						
 		});

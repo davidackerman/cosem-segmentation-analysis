@@ -42,7 +42,7 @@ import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.cosem.util.UnionFindDGA;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -215,7 +215,7 @@ public class SparkContactSites {
 	DataType dataType = ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path, outputN5DatasetName);
 	
 	
-	double[] pixelResolution = IOHelper.getResolution(new N5FSReader(inputN5Path), organelle);
+	double[] pixelResolution = IOHelper.getResolution(N5GenericReader(inputN5Path), organelle);
 	// Get contact distance in voxels
 
 	// add 1 extra because are going to include surface voxels of other organelle so
@@ -270,7 +270,7 @@ public class SparkContactSites {
 	    RandomAccessibleInterval<T> output = Views.offsetInterval(extendedOutput, new long[] {
 		    contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling, contactDistanceInVoxelsCeiling },
 		    dimension);
-	    final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+	    final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 	    N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 	});
@@ -303,7 +303,7 @@ public class SparkContactSites {
 	String organelleContactBoundaryPairsName = organelle + "_pairs_contact_boundary_temp_to_delete";
 
 	// Get pixel resolution
-	double[] pixelResolution = IOHelper.getResolution(new N5FSReader(inputN5Path), organelle);
+	double[] pixelResolution = IOHelper.getResolution(N5GenericReader(inputN5Path), organelle);
 
 	DataType dataType = ProcessingHelper.createDatasetUsingTemplateDataset(inputN5Path, organelle, outputN5Path,
 		organelleContactBoundaryName);
@@ -376,7 +376,7 @@ public class SparkContactSites {
 			    contactDistanceInVoxelsCeiling },
 		    dimension);
 
-	    final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+	    final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 	    N5Utils.saveBlock(output, n5WriterLocal, organelleContactBoundaryName, gridBlock[2]);
 	    N5Utils.saveBlock(outputPair, n5WriterLocal, organelleContactBoundaryPairsName, gridBlock[2]);
 
@@ -507,7 +507,7 @@ public class SparkContactSites {
 	final String organelle2ContactBoundaryString = organelle2;
 
 	// Get attributes of input data set
-	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+	final N5Reader n5Reader = N5GenericReader(inputN5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(organelle1);
 	final int[] blockSize = attributes.getBlockSize();
 	final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
@@ -528,7 +528,7 @@ public class SparkContactSites {
 	    long[] dimension = gridBlock[1];
 
 	    // Read in source block
-	    final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+	    final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 
 	    final RandomAccessibleInterval<T> organelle1Data = Views
 		    .offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils
@@ -617,7 +617,7 @@ public class SparkContactSites {
 	    }
 
 	    // Write out output to temporary n5 stack
-	    final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+	    final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 	    N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 	    return currentBlockInformation;
@@ -667,7 +667,7 @@ public class SparkContactSites {
 	final boolean sameOrganelleClass = sameOrganelleClassTemp;
 
 	// Get attributes of input data set
-	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+	final N5Reader n5Reader = N5GenericReader(inputN5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(organelle1);
 	final int[] blockSize = attributes.getBlockSize();
 	final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
@@ -748,7 +748,7 @@ public class SparkContactSites {
 			currentBlockInformation);
 	    }
 
-	    final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+	    final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 	    N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 	    return currentBlockInformation;
@@ -779,7 +779,7 @@ public class SparkContactSites {
 	final String organelle2ContactBoundaryString = organelle2;
 
 	// Get attributes of input data set
-	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+	final N5Reader n5Reader = N5GenericReader(inputN5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(organelle1);
 	final int[] blockSize = attributes.getBlockSize();
 	final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
@@ -885,7 +885,7 @@ public class SparkContactSites {
 	    }
 
 	    // Write out output to temporary n5 stack
-	    final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+	    final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 	    N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 	    return currentBlockInformation;
@@ -1229,7 +1229,7 @@ public class SparkContactSites {
 	    List<BlockInformation> blockInformationList) throws IOException {
 
 	// Get attributes of input data set:
-	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+	final N5Reader n5Reader = N5GenericReader(inputN5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 	final int[] blockSize = attributes.getBlockSize();
 	final double[] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
@@ -1244,7 +1244,7 @@ public class SparkContactSites {
 	    long[] dimension = gridBlock[1];
 
 	    // Get source
-	    final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+	    final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 	    @SuppressWarnings("unchecked")
 	    final RandomAccessibleInterval<UnsignedLongType> source = (RandomAccessibleInterval<UnsignedLongType>) N5Utils
 		    .open(n5ReaderLocal, inputN5DatasetName);

@@ -31,7 +31,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -144,12 +144,12 @@ public class SparkCellVolume {
 
 		// Get attributes of input data sets. ECS and plasma membrane should have same
 		// properties
-		final N5Reader n5Reader = new N5FSReader(ecsN5Path);
+		final N5Reader n5Reader = N5GenericReader(ecsN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes("ecs");
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] outputDimensions = attributes.getDimensions();
 		final double[] pixelResolution = IOHelper.getResolution(n5Reader, "ecs");
-		final double[] maskPixelResolution = IOHelper.getResolution(new N5FSReader(maskN5Path), "/volumes/masks/foreground");
+		final double[] maskPixelResolution = IOHelper.getResolution(N5GenericReader(maskN5Path), "/volumes/masks/foreground");
 		
 		// Create output dataset
 		ProcessingHelper.createDatasetUsingTemplateDataset(ecsN5Path, "ecs", outputN5Path, outputN5DatasetName);
@@ -225,7 +225,7 @@ public class SparkCellVolume {
 					cellVolume, output, outputDimensions,  new long[] { blockSize[0], blockSize[1], blockSize[2] }, offset, 1, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack
-			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 			return currentBlockInformation;

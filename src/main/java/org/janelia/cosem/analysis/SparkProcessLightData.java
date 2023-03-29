@@ -37,7 +37,7 @@ import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -166,7 +166,7 @@ public class SparkProcessLightData {
 			final double thresholdIntensityCutoff, double minimumVolumeCutoff, List<BlockInformation> blockInformationList) throws IOException {
 
 		// Get attributes of input data set
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
@@ -174,7 +174,7 @@ public class SparkProcessLightData {
 		final double [] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
 				
 		// Create output dataset
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
+		final N5Writer n5Writer = N5GenericWriter(outputN5Path);
 		n5Writer.createGroup(outputN5DatasetName);
 		n5Writer.createDataset(outputN5DatasetName, outputDimensions, blockSize,
 				org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
@@ -191,7 +191,7 @@ public class SparkProcessLightData {
 			long[] dimension = gridBlock[1];
 
 			// Read in source block
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 			final RandomAccessibleInterval<FloatType> sourceInterval = Views.offsetInterval(Views.extendZero(
 						(RandomAccessibleInterval<FloatType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)
 						),offset, dimension);
@@ -210,7 +210,7 @@ public class SparkProcessLightData {
 					blockSizeL, offset, thresholdIntensityCutoff, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack
-			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 			return currentBlockInformation;
@@ -229,7 +229,7 @@ public class SparkProcessLightData {
 			final double thresholdIntensityCutoff, double minimumVolumeCutoff, List<BlockInformation> blockInformationList) throws IOException {
 
 		// Get attributes of input data set
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(organelle1);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
@@ -237,7 +237,7 @@ public class SparkProcessLightData {
 		final double [] pixelResolution = IOHelper.getResolution(n5Reader, organelle1);
 				
 		// Create output dataset
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
+		final N5Writer n5Writer = N5GenericWriter(outputN5Path);
 		n5Writer.createGroup(outputN5DatasetName);
 		n5Writer.createDataset(outputN5DatasetName, outputDimensions, blockSize,
 				org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
@@ -254,7 +254,7 @@ public class SparkProcessLightData {
 			long[] dimension = gridBlock[1];
 
 			// Read in source block
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 			final RandomAccessibleInterval<FloatType> organelle1Data = Views.offsetInterval(Views.extendZero(
 						(RandomAccessibleInterval<FloatType>) N5Utils.open(n5ReaderLocal, organelle1)
 						),offset, dimension);
@@ -297,7 +297,7 @@ public class SparkProcessLightData {
 					blockSizeL, offset, thresholdIntensityCutoff, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack
-			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 			return currentBlockInformation;
@@ -317,13 +317,13 @@ public class SparkProcessLightData {
 			final String outputDatasetName,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();		
 
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
+		final N5Writer n5Writer = N5GenericWriter(outputN5Path);
 		n5Writer.createDataset(
 				outputDatasetName,
 				dimensions,
@@ -339,13 +339,13 @@ public class SparkProcessLightData {
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		rdd.foreach(blockInformation -> {
 			final long [][] gridBlock = blockInformation.gridBlock;
-			final N5Reader n5BlockReader = new N5FSReader(inputN5Path);
+			final N5Reader n5BlockReader = N5GenericReader(inputN5Path);
 			boolean show=false;
 			if(show) new ImageJ();
 			final RandomAccessibleInterval<UnsignedLongType> source = 
 					(RandomAccessibleInterval<UnsignedLongType>)(RandomAccessibleInterval)N5Utils.open(n5BlockReader, inputDatasetName);
 			
-			final N5FSWriter n5BlockWriter = new N5FSWriter(outputN5Path);
+			final N5Writer n5BlockWriter = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(Views.offsetInterval(Views.extendZero(source), gridBlock[0], gridBlock[1]), n5BlockWriter, outputDatasetName, gridBlock[2]);
 		});
 	}

@@ -31,7 +31,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -180,13 +180,13 @@ public class SparkExpandMaskToCleanPredictions {
 			final boolean keepWithinMask,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(datasetToMaskN5Path);
+		final N5Reader n5Reader = N5GenericReader(datasetToMaskN5Path);
 
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetNameToMask);
 		final long[] dimensions = attributes.getDimensions();
 		final int[] blockSize = attributes.getBlockSize();		
 
-		final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
+		final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
 		String maskedDatasetName = datasetNameToMask + "_maskedWith_"+datasetNameToUseAsMask+"_expansion_"+Integer.toString(expansion);
 		n5Writer.createDataset(
 				maskedDatasetName,
@@ -204,8 +204,8 @@ public class SparkExpandMaskToCleanPredictions {
 			int padding = expansionInVoxels+1;
 			final long [] offset= blockInformation.gridBlock[0];
 			final long [] dimension = blockInformation.gridBlock[1];
-			final N5Reader n5MaskReader = new N5FSReader(datasetToUseAsMaskN5Path);
-			final N5Reader n5BlockReader = new N5FSReader(datasetToMaskN5Path);
+			final N5Reader n5MaskReader = N5GenericReader(datasetToUseAsMaskN5Path);
+			final N5Reader n5BlockReader = N5GenericReader(datasetToMaskN5Path);
 			final long [] paddedBlockMin =  new long [] {offset[0]-padding, offset[1]-padding, offset[2]-padding};
 			final long [] paddedBlockSize =  new long [] {dimension[0]+2*padding, dimension[1]+2*padding, dimension[2]+2*padding};
 			
@@ -259,7 +259,7 @@ public class SparkExpandMaskToCleanPredictions {
 				}
 			}
 			
-			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+			final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 			N5Utils.saveBlock(dataToMask, n5BlockWriter, maskedDatasetName, blockInformation.gridBlock[2]);
 		
 		});

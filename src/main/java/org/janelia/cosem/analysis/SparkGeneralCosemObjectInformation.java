@@ -37,7 +37,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
@@ -181,7 +181,7 @@ public class SparkGeneralCosemObjectInformation {
 	    organelle2ContactBoundaryN5Dataset = datasetNames[1] + "_contact_boundary_temp_to_delete";
 	    inputN5DatasetName = datasetNames[2];
 	}
-	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+	final N5Reader n5Reader = N5GenericReader(inputN5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 	final long[] outputDimensions = attributes.getDimensions();
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
@@ -204,7 +204,7 @@ public class SparkGeneralCosemObjectInformation {
 	    Arrays.setAll(extendedDimension, i -> extendedDimension[i] + 2);
 
 	    // Read in source block
-	    final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+	    final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 	    final RandomAccessibleInterval<T> sourceInterval = Views.offsetInterval(
 		    Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)),
 		    extendedOffset, extendedDimension);

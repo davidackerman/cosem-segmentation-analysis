@@ -33,7 +33,7 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -113,7 +113,7 @@ public class SparkProtrusionArea {
 		List<BlockInformation> blockInformationList) throws IOException {
 	    // TODO Auto-generated method stub
 	    
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		double [] pixelResolution = IOHelper.getResolution(n5Reader, protrusionCellDataset);
 		double pixelArea = pixelResolution[0]*pixelResolution[1];
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);

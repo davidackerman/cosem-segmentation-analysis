@@ -40,7 +40,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -238,7 +238,7 @@ public class SparkFillHolesInConnectedComponents {
 	public static final <T extends IntegerType<T> & NativeType<T>> MapsForFillingHoles getMapsForFillingHoles(
 			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName,
 			List<BlockInformation> blockInformationList) throws IOException {
-	   	final N5Reader n5Reader = new N5FSReader(inputN5Path);
+	   	final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DataType dataType = n5Reader.getDatasetAttributes(inputN5DatasetName).getDataType();
 	
 		// Set up rdd to parallelize over blockInformation list and run RDD, which will
@@ -254,8 +254,8 @@ public class SparkFillHolesInConnectedComponents {
 			long[] paddedDimension = new long[] {dimension[0]+2, dimension[1]+2, dimension[2]+2};
 			
 			// Read in source block
-			final N5Reader n5InputReaderLocal = new N5FSReader(inputN5Path);
-			final N5Reader n5OutputReaderLocal = new N5FSReader(outputN5Path);
+			final N5Reader n5InputReaderLocal = N5GenericReader(inputN5Path);
+			final N5Reader n5OutputReaderLocal = N5GenericReader(outputN5Path);
 
 			long[] fullDimensions = new long [] {0,0,0};
 			long maxValue = fullDimensions[0]*fullDimensions[1]*fullDimensions[2]*10;//no object should have a value larger than this
@@ -326,12 +326,12 @@ public class SparkFillHolesInConnectedComponents {
 			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path,final String inputN5DatasetName, final String outputN5DatasetName, MapsForFillingHoles mapsForFillingHoles,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
-				final N5Reader n5Reader = new N5FSReader(inputN5Path);
+				final N5Reader n5Reader = N5GenericReader(inputN5Path);
 				final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 				final int[] blockSize = attributes.getBlockSize();
 
 				// Create output dataset
-				final N5Writer n5Writer = new N5FSWriter(outputN5Path);
+				final N5Writer n5Writer = N5GenericWriter(outputN5Path);
 				n5Writer.createGroup(outputN5DatasetName);
 				n5Writer.createDataset(outputN5DatasetName, attributes.getDimensions(), blockSize,
 						attributes.getDataType(), attributes.getCompression());
@@ -349,8 +349,8 @@ public class SparkFillHolesInConnectedComponents {
 					long[] dimension = gridBlock[1];
 			
 					// Read in source block
-					final N5Reader n5ReaderInputLocal = new N5FSReader(inputN5Path);
-					final N5Reader n5ReaderOutputLocal = new N5FSReader(outputN5Path);
+					final N5Reader n5ReaderInputLocal = N5GenericReader(inputN5Path);
+					final N5Reader n5ReaderOutputLocal = N5GenericReader(outputN5Path);
 
 					final RandomAccessibleInterval<T> objects = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderInputLocal, inputN5DatasetName)),offset, dimension); 
 					final RandomAccessibleInterval<T> holes = Views.offsetInterval(Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5ReaderOutputLocal, inputN5DatasetName+"_holes")),offset, dimension);
@@ -379,7 +379,7 @@ public class SparkFillHolesInConnectedComponents {
 					}
 
 
-					final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+					final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 					N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 					
 					//Get distance transform

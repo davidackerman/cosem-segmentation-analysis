@@ -31,7 +31,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -160,7 +160,7 @@ public class SparkCrop {
 			final String outputN5DatasetName,
 			final String outputN5Path,
 			final boolean convertTo8Bit) throws IOException {
-		final N5Reader n5ToCropToReader = new N5FSReader(n5PathToCropTo);
+		final N5Reader n5ToCropToReader = N5GenericReader(n5PathToCropTo);
 		final DatasetAttributes attributesToCropTo = n5ToCropToReader.getDatasetAttributes(datasetNameToCropTo);
 		final long[] dimensions = attributesToCropTo.getDimensions();
 		final int[] blockSize = attributesToCropTo.getBlockSize();		
@@ -180,10 +180,10 @@ public class SparkCrop {
 			final boolean convertTo8Bit) throws IOException {
 
 	
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
+		final N5Writer n5Writer = N5GenericWriter(outputN5Path);
 		
 		if (convertTo8Bit) {
 			n5Writer.createDataset(
@@ -220,9 +220,9 @@ public class SparkCrop {
 			final long [] dimension = blockInformation.gridBlock[1];
 			
 			
-			final N5Reader n5BlockReader = new N5FSReader(inputN5Path);
+			final N5Reader n5BlockReader = N5GenericReader(inputN5Path);
 			
-			final N5FSWriter n5BlockWriter = new N5FSWriter(outputN5Path);
+			final N5Writer n5BlockWriter = N5GenericWriter(outputN5Path);
 
 			if(convertTo8Bit) {
 				final RandomAccessibleInterval<UnsignedLongType> source = Views.offsetInterval((RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5BlockReader, inputN5DatasetName), offset, dimension);

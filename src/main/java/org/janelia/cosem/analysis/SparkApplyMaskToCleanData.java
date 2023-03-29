@@ -31,7 +31,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -192,7 +192,7 @@ public class SparkApplyMaskToCleanData {
 
 	    maskWithinBlock(maskDataRA, dataToMaskRA, dimension, keepWithinMask);
 
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    
 	    N5Utils.saveBlock(dataToMask, n5BlockWriter, maskedDatasetName,
 		blockInformation.gridBlock[2]);

@@ -38,7 +38,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -269,7 +269,7 @@ public class SparkExpandDataset {
 	    final String outputDatasetName, final int thresholdIntensity, final double expansionInNm,
 	    List<BlockInformation> blockInformationList) throws IOException {
 
-	final N5Reader n5Reader = new N5FSReader(n5Path);
+	final N5Reader n5Reader = N5GenericReader(n5Path);
 
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 	final long[] dimensions = attributes.getDimensions();
@@ -282,7 +282,7 @@ public class SparkExpandDataset {
 //	while (filledBlockCursor.hasNext()) {
 //	    filledBlockCursor.next().set(255);
 //	}
-	final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
+	final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
 
 	n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT8, new GzipCompression());
 
@@ -302,7 +302,7 @@ public class SparkExpandDataset {
 	    long[] offset = gridBlock[0];// new long[] {64,64,64};//gridBlock[0];////
 	    long[] dimension = gridBlock[1];
 
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 	    IntervalView<T> dataset = ProcessingHelper.getOffsetIntervalExtendZeroRAI(n5Path, inputDatasetName, offset,
 		    dimension);
@@ -316,7 +316,7 @@ public class SparkExpandDataset {
 	    }
 
 	    Set<List<Long>> blockOffsetsToCheckNext = new HashSet<List<Long>>();
-	    final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    if (hasObject) {
 		IntervalView<UnsignedByteType> customFilledBlock = ProcessingHelper
 			.getZerosIntegerImageRAI(templateDimension, DataType.UINT8);
@@ -395,12 +395,12 @@ public class SparkExpandDataset {
 	    final String n5Path, final String inputDatasetName, final String n5OutputPath,
 	    final String outputDatasetName, List<BlockInformation> blockInformationList) throws IOException {
 
-	final N5Reader n5Reader = new N5FSReader(n5Path);
+	final N5Reader n5Reader = N5GenericReader(n5Path);
 
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 	final long[] dimensions = attributes.getDimensions();
 	final int[] blockSize = attributes.getBlockSize();
-	final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
+	final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
 
 	n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT8, new GzipCompression());
 
@@ -412,7 +412,7 @@ public class SparkExpandDataset {
 	rdd.foreach(blockInformation -> {
 	    final long[][] gridBlock = blockInformation.gridBlock;
 	    long[] dimension = gridBlock[1];
-	    final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    IntervalView<UnsignedByteType> customFilledBlock = ProcessingHelper.getZerosIntegerImageRAI(dimension,
 		    DataType.UINT8);
 	    Cursor<UnsignedByteType> customFilledBlockCursor = customFilledBlock.cursor();
@@ -529,13 +529,13 @@ public class SparkExpandDataset {
 	    final String outputDatasetName, final int thresholdIntensity, final double expansionInNm,
 	    final List<BlockInformation> blockInformationList, final boolean useFixedValue) throws IOException {
 
-	final N5Reader n5Reader = new N5FSReader(n5Path);
+	final N5Reader n5Reader = N5GenericReader(n5Path);
 
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 	final long[] dimensions = attributes.getDimensions();
 	final int[] blockSize = attributes.getBlockSize();
 
-	final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
+	final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
 
 	if (useFixedValue) {
 	    n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT8, new GzipCompression());
@@ -564,7 +564,7 @@ public class SparkExpandDataset {
 		    offset[2] - expansionInVoxelsCeil };
 	    long[] paddedDimension = new long[] { dimension[0] + 2 * expansionInVoxelsCeil,
 		    dimension[1] + 2 * expansionInVoxelsCeil, dimension[2] + 2 * expansionInVoxelsCeil };
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 	    //ProcessingHelper.logMemory("about to read ");
 	    RandomAccessibleInterval<T> expandedDataset = Views.offsetInterval(
@@ -650,7 +650,7 @@ public class SparkExpandDataset {
 		}
 	    }
 	    //ProcessingHelper.logMemory("looper ");
-	    final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    if (useFixedValue) {
 		final RandomAccessibleInterval<UnsignedByteType> datasetConverted = Converters.convert(dataset,
 			(a, b) -> {
@@ -682,13 +682,13 @@ public class SparkExpandDataset {
 	    final String outputDatasetName, final int thresholdIntensity, final double expansionInNm,
 	    final List<BlockInformation> blockInformationList) throws IOException {
 
-	final N5Reader n5Reader = new N5FSReader(n5Path);
+	final N5Reader n5Reader = N5GenericReader(n5Path);
 
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 	final long[] dimensions = attributes.getDimensions();
 	final int[] blockSize = attributes.getBlockSize();
 
-	final N5Writer n5Writer = new N5FSWriter(n5OutputPath);
+	final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
 
 	n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT8, new GzipCompression());
 
@@ -712,7 +712,7 @@ public class SparkExpandDataset {
 		    offset[2] - expansionInVoxelsCeil };
 	    long[] paddedDimension = new long[] { dimension[0] + 2 * expansionInVoxelsCeil,
 		    dimension[1] + 2 * expansionInVoxelsCeil, dimension[2] + 2 * expansionInVoxelsCeil };
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 	    RandomAccessibleInterval<T> dataset = Views.offsetInterval(
 		    Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, inputDatasetName)),
@@ -749,7 +749,7 @@ public class SparkExpandDataset {
 
 	    RandomAccessibleInterval<T> output = (RandomAccessibleInterval<T>) Views.offsetInterval(expanded,
 		    new long[] { expansionInVoxelsCeil, expansionInVoxelsCeil, expansionInVoxelsCeil }, dimension);
-	    final N5Writer n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 
 	});
@@ -789,7 +789,7 @@ public class SparkExpandDataset {
 
     public static final boolean allBlocksRequireDistanceTransform(String n5Path, String inputDatasetName,
 	    double expansionInNm) throws IOException {
-	final N5Reader n5Reader = new N5FSReader(n5Path);
+	final N5Reader n5Reader = N5GenericReader(n5Path);
 	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 	final int[] blockSize = attributes.getBlockSize();
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);

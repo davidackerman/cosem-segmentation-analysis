@@ -38,7 +38,7 @@ import org.janelia.cosem.util.Bressenham3D;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -136,14 +136,14 @@ public class SparkRibosomeConnectedComponents {
 			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, final String outputN5Path, List<BlockInformation> blockInformationList) throws IOException {
 
 		// Get attributes of input data sets.
-		final N5Reader predictionN5Reader = new N5FSReader(inputN5Path);
+		final N5Reader predictionN5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = predictionN5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] outputDimensions = attributes.getDimensions();
 		final double [] pixelResolution = IOHelper.getResolution(predictionN5Reader, inputN5DatasetName);
 		
 		// Create output dataset
-		final N5Writer n5Writer = new N5FSWriter(outputN5Path);
+		final N5Writer n5Writer = N5GenericWriter(outputN5Path);
 		final String outputCentersDatasetName = inputN5DatasetName+"_centers";
 		n5Writer.createGroup(outputCentersDatasetName);
 		n5Writer.createDataset(outputCentersDatasetName, outputDimensions, blockSize,
@@ -178,7 +178,7 @@ public class SparkRibosomeConnectedComponents {
 			long [] paddedOffset = new long [] {offset[0]-padding,offset[1]-padding,offset[2]-padding};
 			long [] paddedDimension = new long [] {dimension[0]+2*padding,dimension[1]+2*padding,dimension[2]+2*padding};
 			
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 			/*RandomAccessibleInterval<DoubleType> rawPredictions = Views.offsetInterval(Views.extendMirrorSingle(
 					(RandomAccessibleInterval<DoubleType>) N5Utils.open(n5ReaderLocal, inputN5DatasetName)
 					),paddedOffset, paddedDimension); */
@@ -249,7 +249,7 @@ public class SparkRibosomeConnectedComponents {
 	       //findAndDisplayLocalMaxima(sphereness, outputCenters.randomAccess(), outputSpheres.randomAccess(), ribosomeRadiusInVoxels[0], paddedOffset, paddedDimension, outputDimensions);
 			
 			// Write out output to temporary n5 stack
-			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(Views.offsetInterval(outputCenters, new long[] {padding,padding,padding}, dimension), n5WriterLocal, outputCentersDatasetName, gridBlock[2]);
 			N5Utils.saveBlock(Views.offsetInterval(outputSpheres, new long[] {padding,padding,padding}, dimension), n5WriterLocal, outputSpheresDatasetName, gridBlock[2]);
 

@@ -29,7 +29,8 @@ import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
-import org.janelia.saalfeldlab.n5.N5FSWriter;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -136,7 +137,7 @@ public class SparkConvertToBinary {
 		    outputRA.get().setInteger(label);
 		}
 	    }
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 	});
 	

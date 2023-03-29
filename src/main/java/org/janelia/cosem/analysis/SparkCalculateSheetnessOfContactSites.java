@@ -36,7 +36,7 @@ import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
@@ -129,7 +129,7 @@ public class SparkCalculateSheetnessOfContactSites {
 			final String referenceOrganelleName, final List<BlockInformation> blockInformationList) throws IOException {
 
 		// Set up reader and get information about dataset
-		final N5Reader n5Reader = new N5FSReader(n5Path);
+		final N5Reader n5Reader = N5GenericReader(n5Path);
 		double[] pixelResolution = IOHelper.getResolution(n5Reader, volumeAveragedSheetnessDatasetName);
 		double voxelFaceArea = pixelResolution[0] * pixelResolution[1];
 

@@ -45,7 +45,7 @@ import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.cosem.util.UnionFindDGA;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -269,7 +269,7 @@ public class SparkConnectedComponents {
 			final double thresholdIntensityCutoff, double minimumVolumeCutoff, List<BlockInformation> blockInformationList, boolean findHoles, boolean smooth) throws IOException {
 
 		// Get attributes of input data set
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] blockSizeL = new long[] { blockSize[0], blockSize[1], blockSize[2] };
@@ -290,7 +290,7 @@ public class SparkConnectedComponents {
 			long[] dimension = gridBlock[1];
 
 			// Read in source block
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 			RandomAccessibleInterval<UnsignedByteType> sourceInterval = null;
 			if(findHoles) {
 				//If doing hole filling, need to set 0s to values for connected components
@@ -321,7 +321,7 @@ public class SparkConnectedComponents {
 
 				if(maskN5PathName != null) {
 					// Read in mask block
-					final N5Reader n5MaskReaderLocal = new N5FSReader(maskN5PathName);
+					final N5Reader n5MaskReaderLocal = N5GenericReader(maskN5PathName);
 					final RandomAccessibleInterval<UnsignedByteType> mask = N5Utils.open(n5MaskReaderLocal,
 							"/volumes/masks/foreground");
 					final RandomAccessibleInterval<UnsignedByteType> maskInterval = Views.offsetInterval(Views.extendZero(mask),
@@ -358,7 +358,7 @@ public class SparkConnectedComponents {
 					blockSizeL, offset, thresholdIntensityCutoff, minimumVolumeCutoffInVoxels);
 
 			// Write out output to temporary n5 stack
-			final N5Writer n5WriterLocal = new N5FSWriter(outputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(outputN5Path);
 			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 
 			return currentBlockInformation;
@@ -414,7 +414,7 @@ public class SparkConnectedComponents {
 			boolean diamondShape, List<BlockInformation> blockInformationList) throws IOException {
 
 		// Get attributes of input data set:
-		final N5Reader n5Reader = new N5FSReader(inputN5Path);
+		final N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final double [] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
@@ -429,7 +429,7 @@ public class SparkConnectedComponents {
 			long[] dimension = gridBlock[1];
 
 			// Get source
-			final N5Reader n5ReaderLocal = new N5FSReader(inputN5Path);
+			final N5Reader n5ReaderLocal = N5GenericReader(inputN5Path);
 			@SuppressWarnings("unchecked")
 			final RandomAccessibleInterval<UnsignedLongType> source = (RandomAccessibleInterval<UnsignedLongType>)N5Utils.open(n5ReaderLocal, inputN5DatasetName);
 			long[] sourceDimensions = { 0, 0, 0 };
@@ -669,7 +669,7 @@ public class SparkConnectedComponents {
 			}
 
 			//Write out block
-			final N5Writer n5WriterLocal = new N5FSWriter(inputN5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(inputN5Path);
 			N5Utils.saveBlock(output, n5WriterLocal, outputN5DatasetName, gridBlock[2]);
 		});
 

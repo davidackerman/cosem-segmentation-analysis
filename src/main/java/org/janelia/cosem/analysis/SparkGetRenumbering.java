@@ -35,7 +35,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
@@ -121,12 +121,12 @@ public class SparkGetRenumbering {
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 	JavaRDD<HashMap<Long, HashMap<Long, Long>> > objectIDToRenumberingObjectIDCountsRDD = rdd.map(blockInformation -> {
 	    final long[][] gridBlock = blockInformation.gridBlock;
-	    final N5Reader n5BlockReader = new N5FSReader(inputN5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(inputN5Path);
 	    IntervalView<T> datasetToRenumberView = Views.offsetInterval(
 		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetToRenumber), gridBlock[0],
 		    gridBlock[1]);
 	    
-	    final N5Reader n5BlockReaderToUseForRenumbering = new N5FSReader(pathToUseForRenumbering);
+	    final N5Reader n5BlockReaderToUseForRenumbering = N5GenericReader(pathToUseForRenumbering);
 	    IntervalView<T> datasetNumberingToUseView = Views.offsetInterval(
 		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReaderToUseForRenumbering, datasetNumberingToUse), gridBlock[0],
 		    gridBlock[1]);
@@ -228,7 +228,7 @@ public class SparkGetRenumbering {
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 	JavaRDD<Set<Long>> objectIDsRDD = rdd.map(blockInformation -> {
 	    final long[][] gridBlock = blockInformation.gridBlock;
-	    final N5Reader n5BlockReader = new N5FSReader(inputN5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(inputN5Path);
 	    IntervalView<T> source = Views.offsetInterval(
 		    (RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, datasetName), gridBlock[0],
 		    gridBlock[1]);

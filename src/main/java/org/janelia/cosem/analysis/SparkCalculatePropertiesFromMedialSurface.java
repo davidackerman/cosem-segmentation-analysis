@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutionException;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.janelia.cosem.analysis.SparkCalculatePropertiesFromMedialSurface.PlanarityCalculator.VoxelProperties;
 import org.janelia.cosem.util.AbstractOptions;
 import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.CorrectlyPaddedDistanceTransform;
@@ -421,12 +420,13 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	    final String n5Path, final String datasetName, final String n5OutputPath,
 	    final List<BlockInformation> blockInformationList) throws IOException {
 
-	String outputDatasetName = datasetName + "_medialSurfaceDistanceTransform";
+	/* String outputDatasetName = datasetName + "_medialSurfaceDistanceTransform";
 	// General information
 	final int[] blockSize =  N5GenericReader(n5Path).getDatasetAttributes(datasetName).getBlockSize();
 	final long[] offsets = IOHelper.getOffset(N5GenericReader(n5Path), datasetName);
+	*/
 	final long[] dimensions = N5GenericReader(n5Path).getDatasetAttributes(datasetName).getDimensions();
-
+	 
 	double[] pixelResolution = IOHelper.getResolution(N5GenericReader(n5Path), datasetName);
 	double voxelVolume = pixelResolution[0] * pixelResolution[1] * pixelResolution[2];
 	double voxelFaceArea = pixelResolution[0] * pixelResolution[1];
@@ -567,7 +567,7 @@ public class SparkCalculatePropertiesFromMedialSurface {
 	final long[] paddedOffset = blockInformation.getPaddedOffset(1);
 	final long[] paddedDimension = blockInformation.getPaddedDimension(1);
 
-	final N5Reader n5BlockReader = new N5FSReader(n5OutputPath);
+	final N5Reader n5BlockReader = N5GenericReader(n5OutputPath);
 
 	// Get corresponding medial surface and planarity
 	RandomAccess<UnsignedByteType> planarityRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5OutputPath,

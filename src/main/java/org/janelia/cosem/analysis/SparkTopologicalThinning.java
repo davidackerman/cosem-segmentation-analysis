@@ -43,7 +43,7 @@ import org.janelia.cosem.util.Skeletonize3D_;
 import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -155,11 +155,11 @@ public class SparkTopologicalThinning {
 		N5Reader n5Reader = null;
 		DatasetAttributes attributes = null;
 		if(iteration == 0) {
-			n5Reader = new N5FSReader(n5Path);
+			n5Reader = N5GenericReader(n5Path);
 			attributes = n5Reader.getDatasetAttributes(originalInputDatasetName);
 		}
 		else {
-			n5Reader = new N5FSReader(n5OutputPath);
+			n5Reader = N5GenericReader(n5OutputPath);
 			attributes = n5Reader.getDatasetAttributes(inputDatasetName);
 		}
 		final int[] blockSize = attributes.getBlockSize();
@@ -193,14 +193,14 @@ public class SparkTopologicalThinning {
 			
 			//Input source is now the previously completed iteration image, and output is initialized to that
 			String currentInputDatasetName;
-			N5FSReader n5BlockReader = null;
+			N5Reader n5BlockReader = null;
 			if(iteration==0) {
 				currentInputDatasetName = originalInputDatasetName;
-				n5BlockReader = new N5FSReader(n5Path);
+				n5BlockReader = N5GenericReader(n5Path);
 			}
 			else {
 				currentInputDatasetName = inputDatasetName;
-				n5BlockReader = new N5FSReader(n5OutputPath);
+				n5BlockReader = N5GenericReader(n5OutputPath);
 
 			}
 			final RandomAccessibleInterval<T> previousThinningResult = (RandomAccessibleInterval<T>)N5Utils.open(n5BlockReader, currentInputDatasetName);
@@ -218,7 +218,7 @@ public class SparkTopologicalThinning {
 			blockInformation = updateThinningResult(thinningResultCropped, padding, paddedOffset, paddedDimension, doMedialSurface, blockInformation ); //to prevent one skeleton being created for two distinct objects that are touching	
 			IntervalView<T> croppedOutputImage = Views.offsetInterval(thinningResultCropped, new long[] {paddingNeg[0],paddingNeg[1],paddingNeg[2]}, dimension);
 			//Write out current thinned block and return block information updated with whether it needs to be thinned again
-			final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+			final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 			N5Utils.saveBlock(croppedOutputImage, n5BlockWriter, outputDatasetName, gridBlock[2]);
 			
 			return blockInformation;
@@ -529,7 +529,7 @@ public class SparkTopologicalThinning {
 	public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
 			final String inputN5DatasetName) throws Exception {
 		// Get block attributes
-		N5Reader n5Reader = new N5FSReader(inputN5Path);
+		N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] outputDimensions = attributes.getDimensions();

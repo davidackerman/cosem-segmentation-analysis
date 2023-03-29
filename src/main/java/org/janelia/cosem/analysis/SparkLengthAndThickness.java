@@ -45,7 +45,7 @@ import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.SparkDirectoryDelete;
 import org.janelia.cosem.util.Grid;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -133,7 +133,7 @@ public class SparkLengthAndThickness {
 			final String datasetName,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(n5Path);		
+		final N5Reader n5Reader = N5GenericReader(n5Path);		
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName);
 
 		final long[] dimensions = attributes.getDimensions();
@@ -148,7 +148,7 @@ public class SparkLengthAndThickness {
 		final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 		JavaRDD<ObjectwiseSkeletonInformation> javaRDDBlockwiseSkeletonInformation = rdd.map(blockInformation -> {
 			final long [][] gridBlock = blockInformation.gridBlock;
-			final N5Reader n5BlockReader = new N5FSReader(n5Path);
+			final N5Reader n5BlockReader = N5GenericReader(n5Path);
 			boolean show=false;
 			if(show) new ImageJ();
 			RandomAccessibleInterval<UnsignedLongType> connectedComponents = (RandomAccessibleInterval)N5Utils.open(n5BlockReader, datasetName);
@@ -315,7 +315,7 @@ A:			for (boolean paddingIsTooSmall = true; paddingIsTooSmall; Arrays.setAll(pad
 		String organelle,
 		float minimumBranchLength,
 		String outputDirectory) throws IOException, InterruptedException {
-		final N5Reader n5Reader = new N5FSReader(n5Path);		
+		final N5Reader n5Reader = N5GenericReader(n5Path);		
 		double [] pixelResolution = IOHelper.getResolution(n5Reader, organelle);
 		final float minimumBranchLengthInVoxels = (float) (minimumBranchLength/pixelResolution[0]);
 		ArrayList<SkeletonInformation> listOfObjectwiseSkeletonInformation = objectwiseSkeletonInformation.asList();
@@ -384,7 +384,7 @@ A:			for (boolean paddingIsTooSmall = true; paddingIsTooSmall; Arrays.setAll(pad
 			final Broadcast<DataForWritingImages> broadcastedDataForWritingImages,
 			final List<BlockInformation> blockInformationList) throws IOException {
 
-		final N5Reader n5Reader = new N5FSReader(n5Path);		
+		final N5Reader n5Reader = N5GenericReader(n5Path);		
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(datasetName+"_skeleton");
 
 		final long[] sourceDimensions = attributes.getDimensions();
@@ -394,7 +394,7 @@ A:			for (boolean paddingIsTooSmall = true; paddingIsTooSmall; Arrays.setAll(pad
 		
 		
 		final String prunedSkeletonN5DatasetName = datasetName+"_skeleton_pruned";
-		final N5Writer n5Writer = new N5FSWriter(n5Path);
+		final N5Writer n5Writer = N5GenericWriter(n5Path);
 		n5Writer.createGroup(prunedSkeletonN5DatasetName);
 		n5Writer.createDataset(prunedSkeletonN5DatasetName, sourceDimensions, blockSize,
 				org.janelia.saalfeldlab.n5.DataType.UINT64, attributes.getCompression());
@@ -417,7 +417,7 @@ A:			for (boolean paddingIsTooSmall = true; paddingIsTooSmall; Arrays.setAll(pad
 			final long[][] gridBlock = currentBlockInformation.gridBlock;
 			long[] offset = gridBlock[0];
 			long[] dimension = gridBlock[1];
-			final N5Reader n5ReaderLocal = new N5FSReader(n5Path);		
+			final N5Reader n5ReaderLocal = N5GenericReader(n5Path);		
 
 			RandomAccessibleInterval<UnsignedLongType> skeleton = Views.offsetInterval(Views.extendZero(
 						(RandomAccessibleInterval<UnsignedLongType>) N5Utils.open(n5ReaderLocal, datasetName+"_skeleton")
@@ -453,7 +453,7 @@ A:			for (boolean paddingIsTooSmall = true; paddingIsTooSmall; Arrays.setAll(pad
 					}
 				}
 			}
-			final N5Writer n5WriterLocal = new N5FSWriter(n5Path);
+			final N5Writer n5WriterLocal = N5GenericWriter(n5Path);
 			N5Utils.saveBlock(skeleton, n5WriterLocal, prunedSkeletonN5DatasetName, gridBlock[2]);
 			N5Utils.saveBlock(output, n5WriterLocal, longestShortestPathN5DatasetName, gridBlock[2]);
 		});
@@ -470,7 +470,7 @@ A:			for (boolean paddingIsTooSmall = true; paddingIsTooSmall; Arrays.setAll(pad
 	public static List<BlockInformation> buildBlockInformationList(final String inputN5Path,
 			final String inputN5DatasetName) throws IOException {
 		//Get block attributes
-		N5Reader n5Reader = new N5FSReader(inputN5Path);
+		N5Reader n5Reader = N5GenericReader(inputN5Path);
 		final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
 		final int[] blockSize = attributes.getBlockSize();
 		final long[] outputDimensions = attributes.getDimensions();

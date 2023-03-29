@@ -38,7 +38,7 @@ import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
@@ -140,7 +140,7 @@ public class SparkCalculateThicknessHistograms {
 	// calculate distance from medial surface
 	// Parallelize analysis over blocks
 	
-	final double [] pixelResolution = (adjustedPixelResolution == null) ? IOHelper.getResolution(new N5FSReader(n5Path), datasetName) : adjustedPixelResolution;
+	final double [] pixelResolution = (adjustedPixelResolution == null) ? IOHelper.getResolution(N5GenericReader(n5Path), datasetName) : adjustedPixelResolution;
 	
 	
 	//pixelResolution[0]=2; pixelResolution[1]=2; pixelResolution[2]=2;
@@ -150,7 +150,7 @@ public class SparkCalculateThicknessHistograms {
 	    final long[][] gridBlock = blockInformation.gridBlock;
 	    final long[] offset = gridBlock[0];
 	    final long[] dimension = gridBlock[1];
-	    final N5Reader n5BlockReader = new N5FSReader(n5Path);
+	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
 	    // Get correctly padded distance transform first
 	    RandomAccess<T> medialSurfaceRA = ProcessingHelper.getOffsetIntervalExtendZeroRA(n5Path, datasetName+"_medialSurface", offset, dimension);
@@ -186,7 +186,7 @@ public class SparkCalculateThicknessHistograms {
 		    }
 		}
 	    }
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5Path);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5Path);
 	    N5Utils.saveBlock(cpdtCropped, n5BlockWriter, datasetName + "_distanceTransform", gridBlock[2]);
 	    return thicknessHistogram;
 	});

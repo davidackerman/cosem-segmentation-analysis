@@ -29,8 +29,10 @@ import org.janelia.cosem.util.BlockInformation;
 import org.janelia.cosem.util.IOHelper;
 import org.janelia.cosem.util.ProcessingHelper;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -126,8 +128,8 @@ public class SparkExtractExpandedSurface {
 	final String outputDatasetName = inputDatasetName+"_expandedSurfaceBy_"+expansionDistance;
 
 	// General information
-	N5FSReader n5Reader = new N5FSReader(n5Path);
-	DatasetAttributes attributes = new N5FSReader(n5Path).getDatasetAttributes(inputDatasetName);
+	N5Reader n5Reader = N5GenericReader(n5Path);
+	DatasetAttributes attributes = N5GenericReader(n5Path).getDatasetAttributes(inputDatasetName);
 	double[] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
 	double expansionDistanceInVoxels = 1.0*expansionDistance/pixelResolution[0];
 	final int padding = (int) (Math.ceil(expansionDistanceInVoxels)+1);
@@ -175,7 +177,7 @@ public class SparkExtractExpandedSurface {
 	    IntervalView<T> output = Views.offsetInterval(segmentation, new long[] {padding,padding,padding}, dimension);
 
 	    // Write out volume averaged sheetness
-	    final N5FSWriter n5BlockWriter = new N5FSWriter(n5OutputPath);
+	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 	});
 

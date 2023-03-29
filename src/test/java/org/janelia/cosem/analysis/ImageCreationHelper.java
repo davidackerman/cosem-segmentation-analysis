@@ -26,7 +26,7 @@ import java.util.Set;
 import org.janelia.saalfeldlab.n5.DataType;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.GzipCompression;
-import org.janelia.saalfeldlab.n5.N5FSReader;
+import static org.janelia.cosem.util.N5GenericReaderWriter.*;
 import org.janelia.saalfeldlab.n5.N5FSWriter;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.imglib2.N5Utils;
@@ -142,7 +142,7 @@ public class ImageCreationHelper {
        }
     
     public static void writeCustomImage(String n5Path, String dataset, int [][][] voxelValues, int[] blockSize, DataType dataType) throws IOException {
-	final N5Writer n5Writer = new N5FSWriter(n5Path);
+	final N5Writer n5Writer = N5GenericWriter(n5Path);
 	    RandomAccessibleInterval<UnsignedLongType> rai = customImageRAI(voxelValues, dataType);
 	    N5Utils.save(rai, n5Writer, dataset, blockSize, new GzipCompression()); 
     }

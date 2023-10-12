@@ -110,6 +110,9 @@ public class SparkConnectedComponents {
 		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept (nm^3)")
 		private double minimumVolumeCutoff = 20E6;
 		
+		@Option(name = "--maximumVolumeCutoff", required = false, usage = "Volume below which objects will be kept (nm^3)")
+		private double maximumVolumeCutoff = Double.POSITIVE_INFINITY;
+		
 		@Option(name = "--onlyKeepLargestComponent", required = false, usage = "Keep only the largest connected component")
 		private boolean onlyKeepLargestComponent = false;
 
@@ -162,6 +165,10 @@ public class SparkConnectedComponents {
 		
 		public double getMinimumVolumeCutoff() {
 			return minimumVolumeCutoff;
+		}
+		
+		public double getMaximumVolumeCutoff() {
+			return maximumVolumeCutoff;
 		}
 		
 		public boolean getOnlyKeepLargestComponent() {
@@ -386,11 +393,11 @@ public class SparkConnectedComponents {
 	 * @throws IOException
 	 */
 	public static final List<BlockInformation> unionFindConnectedComponents(
-			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, double minimumVolumeCutoff,
+			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, double minimumVolumeCutoff, double maximumVolumeCutoff,
 			List<BlockInformation> blockInformationList) throws IOException
 	{
 		boolean diamondShape = true;
-		return unionFindConnectedComponents(sc, inputN5Path, inputN5DatasetName, minimumVolumeCutoff, diamondShape, blockInformationList);
+		return unionFindConnectedComponents(sc, inputN5Path, inputN5DatasetName, minimumVolumeCutoff, maximumVolumeCutoff, diamondShape, blockInformationList);
 	}
 	
 	/**
@@ -410,7 +417,7 @@ public class SparkConnectedComponents {
 	 * @throws IOException
 	 */
 	public static final List<BlockInformation> unionFindConnectedComponents(
-			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, double minimumVolumeCutoff,
+			final JavaSparkContext sc, final String inputN5Path, final String inputN5DatasetName, double minimumVolumeCutoff, double maximumVolumeCutoff,
 			boolean diamondShape, List<BlockInformation> blockInformationList) throws IOException {
 
 		// Get attributes of input data set:
@@ -534,12 +541,15 @@ public class SparkConnectedComponents {
 		
 		
 		
-		int minimumVolumeCutoffInVoxels = (int) Math.ceil(minimumVolumeCutoff/Math.pow(pixelResolution[0],3));
+		double minimumVolumeCutoffInVoxels = Math.ceil(minimumVolumeCutoff/Math.pow(pixelResolution[0],3));
+		double maximumVolumeCutoffInVoxels = Math.ceil(maximumVolumeCutoff/Math.pow(pixelResolution[0],3));
+
+
 		for (BlockInformation currentBlockInformation : blockInformationList) {
 			for (Entry <Long,Long> e : currentBlockInformation.edgeComponentIDtoRootIDmap.entrySet()) {
 				Long key = e.getKey();
 				Long value = e.getValue();
-				if(rootIDtoVolumeMap.get(value) <= minimumVolumeCutoffInVoxels) {
+				if(rootIDtoVolumeMap.get(value) <= minimumVolumeCutoffInVoxels || rootIDtoVolumeMap.get(value) > maximumVolumeCutoffInVoxels ) {
 				    currentBlockInformation.edgeComponentIDtoRootIDmap.put(key, 0L);
 				    currentBlockInformation.allRootIDs.remove(key);
 				    currentBlockInformation.allRootIDs.remove(value);
@@ -995,12 +1005,14 @@ public class SparkConnectedComponents {
 	 * @param outputN5DatasetSuffix		Output N5 datset suffix
 	 * @param thresholdDistance			Threshold distance used to calculate intensity cutoff
 	 * @param minimumVolumeCutoff		Minimum object volume cutoff
+	 * @param mimumVolumeCutoff		Minimum object volume cutoff
 	 * @param onlyKeepLargestComponent	Whether or not to keep only largest component
 	 * @throws IOException
 	 */
-	public static void standardConnectedComponentAnalysisWorkflow(String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, boolean onlyKeepLargestComponent ) throws IOException {
-			standardConnectedComponentAnalysisWorkflow(inputN5DatasetName, inputN5Path, maskN5Path, outputN5Path, outputN5DatasetSuffix, thresholdDistance, minimumVolumeCutoff, onlyKeepLargestComponent, true );
+	public static void standardConnectedComponentAnalysisWorkflow(String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, double maximumVolumeCutoff, boolean onlyKeepLargestComponent ) throws IOException {
+			standardConnectedComponentAnalysisWorkflow(inputN5DatasetName, inputN5Path, maskN5Path, outputN5Path, outputN5DatasetSuffix, thresholdDistance, minimumVolumeCutoff, maximumVolumeCutoff, onlyKeepLargestComponent, true );
 		}
+	
 	
 	/**
 	 * The standard (usual) connected components workflow with option to smooth input
@@ -1017,6 +1029,10 @@ public class SparkConnectedComponents {
 	 * @throws IOException
 	 */
 	public static void standardConnectedComponentAnalysisWorkflow(String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, boolean onlyKeepLargestComponent, boolean smooth ) throws IOException {
+	    standardConnectedComponentAnalysisWorkflow(inputN5DatasetName, inputN5Path, maskN5Path, outputN5Path, outputN5DatasetSuffix, thresholdDistance, minimumVolumeCutoff, Double.POSITIVE_INFINITY, onlyKeepLargestComponent, smooth );
+	}
+
+	public static void standardConnectedComponentAnalysisWorkflow(String inputN5DatasetName, String inputN5Path, String maskN5Path, String outputN5Path, String outputN5DatasetSuffix, double thresholdDistance, double minimumVolumeCutoff, double maximumVolumeCutoff, boolean onlyKeepLargestComponent, boolean smooth ) throws IOException {
 		final SparkConf conf = new SparkConf().setAppName("SparkConnectedComponents");
 
 		// Get all organelles
@@ -1059,7 +1075,7 @@ public class SparkConnectedComponents {
 					thresholdIntensityCutoff, minimumVolumeCutoff, smooth, blockInformationList);
 			ProcessingHelper.logMemory("Stage 1 complete");
 			
-			blockInformationList = unionFindConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName, minimumVolumeCutoff,
+			blockInformationList = unionFindConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName, minimumVolumeCutoff, maximumVolumeCutoff,
 					blockInformationList);
 			ProcessingHelper.logMemory("Stage 2 complete");
 			
@@ -1101,7 +1117,7 @@ public class SparkConnectedComponents {
 			thresholdDistance = 50*0.5*Math.log( (1.0 + x) / (1.0 - x));
 		}
 		//something wrong in numbering
-		standardConnectedComponentAnalysisWorkflow(options.getInputN5DatasetName(), options.getInputN5Path(), options.getMaskN5Path(), options.getOutputN5Path(), options.getOutputN5DatasetSuffix(), thresholdDistance, options.getMinimumVolumeCutoff(), options.getOnlyKeepLargestComponent(), smooth);
+		standardConnectedComponentAnalysisWorkflow(options.getInputN5DatasetName(), options.getInputN5Path(), options.getMaskN5Path(), options.getOutputN5Path(), options.getOutputN5DatasetSuffix(), thresholdDistance, options.getMinimumVolumeCutoff(), options.getMaximumVolumeCutoff(), options.getOnlyKeepLargestComponent(), smooth);
 
 	}
 }

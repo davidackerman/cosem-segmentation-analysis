@@ -357,8 +357,10 @@ public class SparkExpandFilaments {
 			int dy = neighborZero[1]-neighborOne[1];
 			int dz = neighborZero[2]-neighborOne[2];
 			
-			if(dx*dx+dy*dy+dz*dz>2) {//then the neighbors are far enough apart that the center point is not an endpoint
-				return null;
+			if(dx*dx+dy*dy+dz*dz>=2) {//then the neighbors are far enough apart that the center point is not an endpoint
+			    //[]
+			    //[][] this is what two would look like
+			    return null;
 			}
 			else {
 				int n0mag = neighborZero[0]*neighborZero[0]+neighborZero[1]*neighborZero[1]+neighborZero[2]*neighborZero[2];

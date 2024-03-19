@@ -70,7 +70,7 @@ import net.imglib2.type.numeric.integer.UnsignedByteType;
 import net.imglib2.type.numeric.real.FloatType;
 import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
-
+import ucar.units.RaiseException;
 import net.imglib2.algorithm.morphology.StructuringElements;
 
 /**
@@ -97,11 +97,20 @@ public class SparkExpandDataset {
 	@Option(name = "--thresholdIntensityCutoff", required = false, usage = "Threshold intensity cutoff above which objects will be expanded")
 	private Integer thresholdIntensityCutoff = 0;
 
+	@Option(name = "--useOnlySurfaceVoxels", required = false, usage = "Whether to expand just surface voxels")
+	private boolean useOnlySurfaceVoxels = false;
+
 	@Option(name = "--expansionInNm", required = false, usage = "Expansion (nm)")
 	private double expansionInNm = 12;
 
 	@Option(name = "--useFixedValue", required = false, usage = "Whether to use a fixed value of 255 for expanded objects")
 	private boolean useFixedValue = false;
+
+	@Option(name = "--intensityN5Path", required = false, usage = "Path to intensities if want to only expand to certain threshold")
+	private String intensityN5Path = null;
+
+	@Option(name = "--intensityN5DatasetName", required = false, usage = "Dataset name of intensities if want to only expand to certain threshold")
+	private String intensityN5DatasetName = null;
 
 	public Options(final String[] args) {
 
@@ -147,8 +156,20 @@ public class SparkExpandDataset {
 	    return expansionInNm;
 	}
 
+	public boolean getUseOnlySurfaceVoxels() {
+	    return useOnlySurfaceVoxels;
+	}
+
 	public boolean getUseFixedValue() {
 	    return useFixedValue;
+	}
+
+	public String getintensityN5Path() {
+	    return intensityN5Path;
+	}
+
+	public String getintensityN5DatasetName() {
+	    return intensityN5DatasetName;
 	}
 
     }
@@ -231,8 +252,8 @@ public class SparkExpandDataset {
 
     public static Set<List<Long>> getOffsetsToCheckNext(ArrayList<long[]> relativeOffsets, long[] offset) {
 	Set<List<Long>> offsetsToCheckNext = new HashSet<List<Long>>();
-	for (int r=0; r<relativeOffsets.size(); r++) {
-	    long [] currentRelativeOffset = relativeOffsets.get(r).clone();
+	for (int r = 0; r < relativeOffsets.size(); r++) {
+	    long[] currentRelativeOffset = relativeOffsets.get(r).clone();
 	    for (int i = 0; i < 3; i++) {
 		currentRelativeOffset[i] += offset[i];
 	    }
@@ -426,13 +447,13 @@ public class SparkExpandDataset {
 
     public static final double squaredDistanceFromBox(long[] pos, long padding, long[] dimension) {
 	// https://math.stackexchange.com/questions/2133217/minimal-distance-to-a-cube-in-2d-and-3d-from-a-point-lying-outside
-	double distSquared = 0,delta=0;
-	long edge1=padding, edge2;
+	double distSquared = 0, delta = 0;
+	long edge1 = padding, edge2;
 	for (int i = 0; i < 3; i++) {
-	    edge2=dimension[i]-padding-1;
-	    if(!(pos[i]>=edge1 && pos[i]<=edge2)) {
-		delta=Math.min(Math.abs(pos[i]-edge1),Math.abs(pos[i]-edge2));
-		distSquared+=Math.pow(delta,2);
+	    edge2 = dimension[i] - padding - 1;
+	    if (!(pos[i] >= edge1 && pos[i] <= edge2)) {
+		delta = Math.min(Math.abs(pos[i] - edge1), Math.abs(pos[i] - edge2));
+		distSquared += Math.pow(delta, 2);
 	    }
 	}
 	return distSquared;
@@ -505,7 +526,6 @@ public class SparkExpandDataset {
 	for (int dim = 0; dim < 3; dim++) {
 	    long[] minAndMaxAlongDimension = getMinAndMaxAlongDimension(dataset, dim, dimension, padding,
 		    expansionInVoxelsSquared);
-	    System.out.println(Arrays.toString(minAndMaxAlongDimension));
 	    adjustedOffsetAndDimension[0][dim] = minAndMaxAlongDimension[0];
 	    adjustedOffsetAndDimension[1][dim] = minAndMaxAlongDimension[1] - minAndMaxAlongDimension[0] + 1;
 	}
@@ -527,7 +547,9 @@ public class SparkExpandDataset {
     public static final <T extends IntegerType<T> & NativeType<T>> void expandDataset(final JavaSparkContext sc,
 	    final String n5Path, final String inputDatasetName, final String n5OutputPath,
 	    final String outputDatasetName, final int thresholdIntensity, final double expansionInNm,
-	    final List<BlockInformation> blockInformationList, final boolean useFixedValue) throws IOException {
+	    final List<BlockInformation> blockInformationList, final boolean useFixedValue,
+	    final boolean useOnlySurfaceVoxels, final String intensityN5Path, final String intensityN5DatasetName)
+	    throws IOException {
 
 	final N5Reader n5Reader = N5GenericReader(n5Path);
 
@@ -536,23 +558,25 @@ public class SparkExpandDataset {
 	final int[] blockSize = attributes.getBlockSize();
 
 	final N5Writer n5Writer = N5GenericWriter(n5OutputPath);
-
+	final DataType dataType = attributes.getDataType();
 	if (useFixedValue) {
-	    n5Writer.createDataset(outputDatasetName, dimensions, blockSize, DataType.UINT8, new GzipCompression());
+	    ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
+		    outputDatasetName, DataType.UINT8);
 	} else {
-	    n5Writer.createDataset(outputDatasetName, dimensions, blockSize, attributes.getDataType(),
-		    new GzipCompression());
+	    ProcessingHelper.createDatasetUsingTemplateDataset(n5Path, inputDatasetName, n5OutputPath,
+		    outputDatasetName);
 	}
-		
-	double[] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
-	n5Writer.setAttribute(outputDatasetName, "pixelResolution", new IOHelper.PixelResolution(pixelResolution));
-	n5Writer.setAttribute(outputDatasetName, "offset", IOHelper.getOffset(n5Reader, inputDatasetName));
 
+	double[] pixelResolution = IOHelper.getResolution(n5Reader, inputDatasetName);
 	// n5Writer.setAttribute(outputDatasetName, "offset",
 	// n5Reader.getAttribute(inputDatasetName, "offset", int[].class));
 
 	double expansionInVoxels = expansionInNm / pixelResolution[0];
-	int expansionInVoxelsCeil = (int) Math.ceil(expansionInVoxels);
+	int expansionInVoxelsCeil = (int) Math.ceil(expansionInVoxels) + (useOnlySurfaceVoxels ? 1 : 0); // want to have
+													 // enough to
+													 // determine if
+													 // is surface
+													 // voxel
 	double expansionInVoxelsSquared = expansionInVoxels * expansionInVoxels;
 	final JavaRDD<BlockInformation> rdd = sc.parallelize(blockInformationList);
 
@@ -566,66 +590,109 @@ public class SparkExpandDataset {
 		    dimension[1] + 2 * expansionInVoxelsCeil, dimension[2] + 2 * expansionInVoxelsCeil };
 	    final N5Reader n5BlockReader = N5GenericReader(n5Path);
 
-	    //ProcessingHelper.logMemory("about to read ");
+	    // ProcessingHelper.logMemory("about to read ");
 	    RandomAccessibleInterval<T> expandedDataset = Views.offsetInterval(
 		    Views.extendZero((RandomAccessibleInterval<T>) N5Utils.open(n5BlockReader, inputDatasetName)),
 		    paddedOffset, paddedDimension);
 
-	    long[][] adjustedOffsetAndDimension = getAdjustedOffsetAndDimension(expandedDataset, paddedDimension,
-		    expansionInVoxelsCeil, expansionInVoxelsSquared);
+	    long[][] adjustedOffsetAndDimension;
+	    if (!useOnlySurfaceVoxels) {
+		adjustedOffsetAndDimension = getAdjustedOffsetAndDimension(expandedDataset, paddedDimension,
+			expansionInVoxelsCeil, expansionInVoxelsSquared);
+	    } else {
+		adjustedOffsetAndDimension = new long[][] { { 0, 0, 0 }, paddedDimension, };
+	    }
 	    long[] adjustedOffset = adjustedOffsetAndDimension[0];
 	    long[] boxOffset = new long[] { expansionInVoxelsCeil - adjustedOffset[0],
 		    expansionInVoxelsCeil - adjustedOffset[1], expansionInVoxelsCeil - adjustedOffset[2] };
 	    long[] adjustedDimension = adjustedOffsetAndDimension[1];
-	    
-	    //filler to remove
-	    //boxOffset = new long[] {expansionInVoxelsCeil,expansionInVoxelsCeil,expansionInVoxelsCeil};
-	    //adjustedOffset = new long[] {0,0,0};
-	    //adjustedDimension=paddedDimension;
-	    
+
+	    // filler to remove
+	    // boxOffset = new long[]
+	    // {expansionInVoxelsCeil,expansionInVoxelsCeil,expansionInVoxelsCeil};
+	    // adjustedOffset = new long[] {0,0,0};
+	    // adjustedDimension=paddedDimension;
+
 	    expandedDataset = Views.offsetInterval(expandedDataset, adjustedOffset, adjustedDimension);
 	    RandomAccess<T> expandedDatasetRA = expandedDataset.randomAccess();
-	    //ProcessingHelper.logMemory("about to crop ");
+	    // ProcessingHelper.logMemory("about to crop ");
 
-	    //ProcessingHelper.logMemory("about to convert ");
-	    RandomAccessibleInterval<NativeBoolType> converted = Converters.convert(expandedDataset, (a, b) -> {
-		b.set(a.getIntegerLong() > thresholdIntensity);
-	    }, new NativeBoolType());
+	    // ProcessingHelper.logMemory("about to convert ");
+	    RandomAccessibleInterval<NativeBoolType> converted;
+	    if (!useOnlySurfaceVoxels) {
+		converted = Converters.convert(expandedDataset, (a, b) -> {
+		    b.set(a.getIntegerLong() > thresholdIntensity);
+		}, new NativeBoolType());
+	    } else {
+		converted = ArrayImgs.booleans(paddedDimension);
+		RandomAccess<NativeBoolType> convertedRA = converted.randomAccess();
+		for (long x = 1; x < paddedDimension[0] - 1; x++) {
+		    for (long y = 1; y < paddedDimension[1] - 1; y++) {
+			for (long z = 1; z < paddedDimension[2] - 1; z++) {
+			    long pos[] = new long[] { x, y, z };
+			    expandedDatasetRA.setPosition(pos);
+			    if (expandedDatasetRA.get().getIntegerLong() > 0
+				    && ProcessingHelper.getSurfaceAreaContributionOfVoxelInFaces(expandedDatasetRA,
+					    boxOffset, dimensions, true) > 0) {
+				convertedRA.setPosition(pos);
+				convertedRA.get().set(true);
+			    }
+			}
+		    }
+		}
+
+	    }
 
 	    // RandomAccessibleInterval<NativeBoolType> convertedTemp =
 	    // ProcessingHelper.getFalsesBoolImageRAI(paddedDimension);
 
-	    //ProcessingHelper.logMemory("about to create distance transform image ");
+	    // ProcessingHelper.logMemory("about to create distance transform image ");
 	    RandomAccessibleInterval<FloatType> distanceTransform = ArrayImgs.floats(adjustedDimension);
-	    //ProcessingHelper.logMemory("about to create distance transform ");
+	    // ProcessingHelper.logMemory("about to create distance transform ");
 	    DistanceTransform.binaryTransform(converted, distanceTransform, DISTANCE_TYPE.EUCLIDIAN);
-	    
-	    //ProcessingHelper.logMemory("about to crop ");
+
+	    // ProcessingHelper.logMemory("about to crop ");
 	    distanceTransform = (RandomAccessibleInterval<FloatType>) Views.offsetInterval(distanceTransform, boxOffset,
 		    dimension);
 	    RandomAccess<FloatType> distanceTransformRA = distanceTransform.randomAccess();
-	    
 
-	    RandomAccessibleInterval<T> dataset = (RandomAccessibleInterval<T>) Views.offsetInterval(expandedDataset,
-		    boxOffset, dimension);
-	    RandomAccess<T> datasetRA = dataset.randomAccess();
+	    RandomAccessibleInterval<T> output = ProcessingHelper.getZerosIntegerImageRAI(dimension, dataType);
+	    RandomAccess<T> outputRA = output.randomAccess();
 	    if (useFixedValue) {
 		expandedDataset = null;
 	    }
-	    //ImageJFunctions.show(distanceTransform);
-	    //ImageJFunctions.show(distanceTransform);
-	    //ProcessingHelper.logMemory("about to loop ");
+	    // ImageJFunctions.show(distanceTransform);
+	    // ImageJFunctions.show(distanceTransform);
+	    // ProcessingHelper.logMemory("about to loop ");
+
+	    RandomAccess<T> intensitiesRA = null;
+	    if (intensityN5Path != null && intensityN5DatasetName != null) {
+		// Read in source block
+		final RandomAccessibleInterval<T> intensitiesDataset = ProcessingHelper
+			.getOffsetIntervalExtendZeroRAI(intensityN5Path, intensityN5DatasetName, offset, dimension);
+		intensitiesRA = intensitiesDataset.randomAccess();
+	    }
+
 	    long newX, newY, newZ;
 	    for (long x = boxOffset[0]; x < boxOffset[0] + dimension[0]; x++) {
 		for (long y = boxOffset[1]; y < boxOffset[1] + dimension[1]; y++) {
 		    for (long z = boxOffset[2]; z < boxOffset[2] + dimension[2]; z++) {
 			long pos[] = new long[] { x - boxOffset[0], y - boxOffset[1], z - boxOffset[2] };
+
+			// If masking with intensities, continue if is not a predicted organelle voxel
+			if (intensitiesRA != null) {
+			    intensitiesRA.setPosition(pos);
+			    if (intensitiesRA.get().getInteger() < 127) {
+				continue;
+			    }
+			}
+
 			distanceTransformRA.setPosition(pos);
 			float distanceSquared = distanceTransformRA.get().get();
 			if (distanceSquared <= expansionInVoxelsSquared) {
-			    datasetRA.setPosition(pos);
+			    outputRA.setPosition(pos);
 			    if (useFixedValue) {
-				datasetRA.get().setInteger(255);
+				outputRA.get().setInteger(255);
 			    } else {
 				Set<List<Integer>> voxelsToCheck = SparkContactSites
 					.getVoxelsToCheckBasedOnDistance(distanceSquared);
@@ -639,26 +706,30 @@ public class SparkExpandDataset {
 					expandedDatasetRA.setPosition(new long[] { newX, newY, newZ });
 					T currentObjectID = expandedDatasetRA.get();
 					if (currentObjectID.getIntegerLong() > 0) {
-					    datasetRA.get().set(currentObjectID);
+					    outputRA.get().set(currentObjectID);
 					    break;
 					}
 				    }
 				}
 			    }
+			} else if (useOnlySurfaceVoxels) {
+			    outputRA.setPosition(pos);
+			    outputRA.get().setInteger(0);
 			}
 		    }
 		}
 	    }
-	    //ProcessingHelper.logMemory("looper ");
+
+	    // ProcessingHelper.logMemory("looper ");
 	    final N5Writer n5BlockWriter = N5GenericWriter(n5OutputPath);
 	    if (useFixedValue) {
-		final RandomAccessibleInterval<UnsignedByteType> datasetConverted = Converters.convert(dataset,
+		final RandomAccessibleInterval<UnsignedByteType> datasetConverted = Converters.convert(output,
 			(a, b) -> {
 			    b.set(a.getIntegerLong() > 0 ? 255 : 0);
 			}, new UnsignedByteType());
 		N5Utils.saveBlock(datasetConverted, n5BlockWriter, outputDatasetName, gridBlock[2]);
 	    } else {
-		N5Utils.saveBlock(dataset, n5BlockWriter, outputDatasetName, gridBlock[2]);
+		N5Utils.saveBlock(output, n5BlockWriter, outputDatasetName, gridBlock[2]);
 	    }
 
 	});
@@ -836,9 +907,12 @@ public class SparkExpandDataset {
 	String inputN5DatasetName = options.getInputN5DatasetName();
 	String outputN5Path = options.getOutputN5Path();
 	String outputN5DatasetName = options.getInputN5DatasetName() + options.getOutputN5DatasetSuffix();
+	String intensityN5Path = options.getintensityN5Path();
+	String intensityN5DatasetName = options.getintensityN5DatasetName();
 	Integer thresholdIntensityCutoff = options.getThresholdIntensityCutoff();
 	double expansionInNm = options.getExpansionInNm();
 	boolean useFixedValue = options.getUseFixedValue();
+	boolean useOnlySurfaceVoxels = options.getUseOnlySurfaceVoxels();
 
 	for (String currentOrganelle : organelles) {
 	    // Create block information list
@@ -865,14 +939,16 @@ public class SparkExpandDataset {
 	    }
 	    ProcessingHelper.logMemory(blockInformationList.size() + " blocks for expandDataset");
 	    if (blockInformationList.size() > 0) {
-		/*for(BlockInformation blockInformation : blockInformationList) {
-		    if(blockInformation.gridBlock[0][0]==128*6 && blockInformation.gridBlock[0][1]==128*1 && blockInformation.gridBlock[0][2]==128*7) {
-			newList.add(blockInformation);
-			System.out.println(Arrays.toString(blockInformation.gridBlock[0]));
-		    }
-		}*/
+		/*
+		 * for(BlockInformation blockInformation : blockInformationList) {
+		 * if(blockInformation.gridBlock[0][0]==128*6 &&
+		 * blockInformation.gridBlock[0][1]==128*1 &&
+		 * blockInformation.gridBlock[0][2]==128*7) { newList.add(blockInformation);
+		 * System.out.println(Arrays.toString(blockInformation.gridBlock[0])); } }
+		 */
 		expandDataset(sc, inputN5Path, inputN5DatasetName, outputN5Path, outputN5DatasetName,
-			thresholdIntensityCutoff, expansionInNm, blockInformationList, useFixedValue);
+			thresholdIntensityCutoff, expansionInNm, blockInformationList, useFixedValue,
+			useOnlySurfaceVoxels, intensityN5Path, intensityN5DatasetName);
 	    }
 
 	    sc.close();

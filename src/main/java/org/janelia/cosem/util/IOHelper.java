@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.Set;
 
 import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5Writer;
-import org.janelia.saalfeldlab.n5.ij.N5Factory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,29 +54,25 @@ public class IOHelper {
 		return resolution;
 	}
 
-	public static double[] getResolution(final N5Reader n5, final String dataset) {
+	public static double[] getResolution(final N5Reader n5, final String dataset) throws IOException {
 		Set<String> attrKeys;
-		try {
-			attrKeys = n5.listAttributes(dataset).keySet();
-			double[] resolution = null;
-			for (ResolutionGet rg : resolutionGetters) {
-				if (attrKeys.contains(rg.getKey())) {
-					ResolutionGet rgInstance;
-					if (rg.isSimple())
-						rgInstance = rg.create(n5.getAttribute(dataset, rg.getKey(), double[].class));
-					else
-						rgInstance = (ResolutionGet) n5.getAttribute(dataset, rg.getKey(), rg.getClass());
+		attrKeys = n5.listAttributes(dataset).keySet();
+		double[] resolution = null;
+		for (ResolutionGet rg : resolutionGetters) {
+			if (attrKeys.contains(rg.getKey())) {
+				ResolutionGet rgInstance;
+				if (rg.isSimple())
+					rgInstance = rg.create(n5.getAttribute(dataset, rg.getKey(), double[].class));
+				else
+					rgInstance = (ResolutionGet) n5.getAttribute(dataset, rg.getKey(), rg.getClass());
 
-					resolution = rgInstance.getResolution();
-					return resolution;
-				}
+				resolution = rgInstance.getResolution();
+				return resolution;
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 		return new double[] { 4, 4, 4 };// Default to 4 nm
 	}
-
+	
 	public static long[] getOffset(final N5Reader n5, final String dataset) throws IOException {
 		long[] offset = n5.getAttribute(dataset, "offset", long[].class);
 		if (offset == null) {
@@ -165,11 +159,10 @@ public class IOHelper {
 		return permute(source, p);
 	}
 
-	public static AffineGet pixelToPhysicalN5(final N5Reader n5, final String dataset) {
-		try {
-			if (n5.datasetExists(dataset)) {
-				long[] size = (long[]) n5.getAttribute(dataset, "dimensions", long[].class);
-				int nd = size.length;
+	public static AffineGet pixelToPhysicalN5(final N5Reader n5, final String dataset) throws IOException {
+		if (n5.datasetExists(dataset)) {
+			long[] size = (long[]) n5.getAttribute(dataset, "dimensions", long[].class);
+			int nd = size.length;
 
 //				double[] resolutions = (double[])n5.getAttribute( dataset, resolutionAttribute, double[].class );
 //				if( resolutions == null )
@@ -178,35 +171,35 @@ public class IOHelper {
 //					Arrays.fill( resolutions, 1.0 );
 //				}
 
-				Set<String> attrKeys = n5.listAttributes(dataset).keySet();
-				double[] resolution = null;
-				for (ResolutionGet rg : resolutionGetters) {
-					if (attrKeys.contains(rg.getKey())) {
-						ResolutionGet rgInstance = (ResolutionGet) n5.getAttribute(dataset, rg.getKey(), rg.getClass());
-						resolution = rgInstance.getResolution();
-						break;
-					}
+			Set<String> attrKeys = n5.listAttributes(dataset).keySet();
+			double[] resolution = null;
+			for (ResolutionGet rg : resolutionGetters) {
+				if (attrKeys.contains(rg.getKey())) {
+					ResolutionGet rgInstance = (ResolutionGet) n5.getAttribute(dataset, rg.getKey(), rg.getClass());
+					resolution = rgInstance.getResolution();
+					break;
 				}
+			}
 
-				if (resolution == null) {
-					resolution = new double[size.length];
-					Arrays.fill(resolution, 1.0);
-				}
+			if (resolution == null) {
+				resolution = new double[size.length];
+				Arrays.fill(resolution, 1.0);
+			}
 
-				// TODO implement
+			// TODO implement
 //				double[] offset = (double[])n5.getAttribute( dataset, offsetAttribute, double[].class );
-				double[] offset = null;
+			double[] offset = null;
 
-				if (nd == 1) {
-					AffineTransform affine = new AffineTransform(1);
-					affine.set(resolution[0], 0, 0);
-					// affine.set( offset[ 0 ], 0, 1 ); // TODO
-					return affine;
-				} else if (nd == 2 && offset == null) {
-					return new Scale2D(resolution);
-				} else if (nd == 3 && offset == null) {
-					return new Scale3D(resolution);
-				}
+			if (nd == 1) {
+				AffineTransform affine = new AffineTransform(1);
+				affine.set(resolution[0], 0, 0);
+				// affine.set( offset[ 0 ], 0, 1 ); // TODO
+				return affine;
+			} else if (nd == 2 && offset == null) {
+				return new Scale2D(resolution);
+			} else if (nd == 3 && offset == null) {
+				return new Scale3D(resolution);
+			}
 //				else if ( nd == 2 && offset != null )
 //				{
 //					AffineTransform2D affine = new AffineTransform2D();
@@ -216,11 +209,8 @@ public class IOHelper {
 //					AffineTransform3D affine = new AffineTransform3D();
 //				}
 
-				return null;
+			return null;
 
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 		return null;
 	}

@@ -77,6 +77,21 @@ public class BlockInformation implements Serializable {
 	this.thinningLocations = new boolean[3][3][3];
     }
 
+    public static List<BlockInformation> buildBlockInformationList(String inputN5Path, String inputN5DatasetName, int[] blockSize)
+	    throws IOException {
+	// Get block attributes
+	N5Reader n5Reader = N5GenericReader(inputN5Path);
+	if (Files.exists(Paths.get(inputN5Path + "/" + inputN5DatasetName + "/s0"))) { // in case is multiscale
+	    inputN5DatasetName = inputN5DatasetName + "/s0";
+	}
+
+	final DatasetAttributes attributes = n5Reader.getDatasetAttributes(inputN5DatasetName);
+	final long[] outputDimensions = attributes.getDimensions();
+
+	// Build list
+	return buildBlockInformationList(outputDimensions, blockSize);
+    }
+    
     public static List<BlockInformation> buildBlockInformationList(String inputN5Path, String inputN5DatasetName)
 	    throws IOException {
 	// Get block attributes

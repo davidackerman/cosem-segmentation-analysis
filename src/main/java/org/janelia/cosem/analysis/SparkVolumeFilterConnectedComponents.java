@@ -71,6 +71,9 @@ public class SparkVolumeFilterConnectedComponents {
 		@Option(name = "--minimumVolumeCutoff", required = false, usage = "Volume above which objects will be kept")
 		private double minimumVolumeCutoff = 20E6;
 		
+		@Option(name = "--maximumVolumeCutoff", required = false, usage = "Volume above which objects will be kept")
+		private double maximumVolumeCutoff = Double.POSITIVE_INFINITY;
+		
 		@Option(name = "--idsToKeep", required = false, usage = "Ids to keep during volume filtering even if below volume cutoff")
 		private String idsToKeep = "";
 
@@ -104,6 +107,10 @@ public class SparkVolumeFilterConnectedComponents {
 		public double getMinimumVolumeCutoff() {
 			return minimumVolumeCutoff;
 		}
+		
+		public double getMaximumVolumeCutoff() {
+			return maximumVolumeCutoff;
+		}
 	
 		public String getIDsToKeep() {
 			return idsToKeep;
@@ -111,13 +118,13 @@ public class SparkVolumeFilterConnectedComponents {
 
 	}
 	public static final <T extends NativeType<T>> void volumeFilterConnectedComponents(
-			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff,
+			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, double maximumVolumeCutoff,
 			List<BlockInformation> blockInformationList) throws IOException {
-		volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, inputN5DatasetName, outputN5DatasetName, minimumVolumeCutoff, new HashSet<Long>(), blockInformationList);
+		volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, inputN5DatasetName, outputN5DatasetName, minimumVolumeCutoff, maximumVolumeCutoff, new HashSet<Long>(), blockInformationList);
 	}
 	
 	public static final <T extends IntegerType<T> & NativeType<T>> void volumeFilterConnectedComponents(
-			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, Set<Long> idsToKeep,
+			final JavaSparkContext sc, final String inputN5Path, final String outputN5Path, final String inputN5DatasetName, final String outputN5DatasetName, double minimumVolumeCutoff, double maximumVolumeCutoff, Set<Long> idsToKeep,
 			List<BlockInformation> blockInformationList) throws IOException {
 				// Get attributes of input data set
 				final N5Reader n5Reader = N5GenericReader(inputN5Path);
@@ -125,6 +132,8 @@ public class SparkVolumeFilterConnectedComponents {
 				final int[] blockSize = attributes.getBlockSize();
 				final double[] pixelResolution = IOHelper.getResolution(n5Reader, inputN5DatasetName);
 				final float minimumVolumeCutoffInVoxels = (float) (minimumVolumeCutoff/Math.pow(pixelResolution[0],3));
+				final float maximumVolumeCutoffInVoxels = (float) (maximumVolumeCutoff/Math.pow(pixelResolution[0],3));
+
 				// Create output dataset
 				final N5Writer n5Writer = N5GenericWriter(inputN5Path);
 				n5Writer.createGroup(outputN5DatasetName);
@@ -179,7 +188,7 @@ public class SparkVolumeFilterConnectedComponents {
 					while(objectsCursor.hasNext()) {
 						T voxel = objectsCursor.next();
 						long objectID = voxel.getIntegerLong();
-						if(finalObjectIDtoVolumeMap.get(objectID) <= minimumVolumeCutoffInVoxels && !idsToKeep.contains(objectID)) {
+						if((finalObjectIDtoVolumeMap.get(objectID) <= minimumVolumeCutoffInVoxels || finalObjectIDtoVolumeMap.get(objectID) > maximumVolumeCutoffInVoxels) && !idsToKeep.contains(objectID)) {
 							voxel.setInteger(0);
 						}
 					}
@@ -225,7 +234,7 @@ public class SparkVolumeFilterConnectedComponents {
 			if(!options.getIDsToKeep().isEmpty())
 				for(String s :  Arrays.asList(options.getIDsToKeep().split(","))) idsToKeep.add(Long.valueOf(s));
 			
-			volumeFilterConnectedComponents(sc, options.getInputN5Path(), options.getOutputN5Path(), currentOrganelle, currentOrganelle + "_volumeFiltered", options.getMinimumVolumeCutoff(), idsToKeep, blockInformationList);
+			volumeFilterConnectedComponents(sc, options.getInputN5Path(), options.getOutputN5Path(), currentOrganelle, currentOrganelle + "_volumeFiltered", options.getMinimumVolumeCutoff(), options.getMaximumVolumeCutoff(), idsToKeep, blockInformationList);
 			sc.close();
 		}
 	}

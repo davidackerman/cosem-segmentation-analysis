@@ -408,7 +408,7 @@ public class SparkProcessLightData {
 					thresholdIntensities[i], options.getMinimumVolumeCutoff(), blockInformationList); 
 	
 			double minimumVolumeCutoff = options.getMinimumVolumeCutoff();			
-			blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, options.getOutputN5Path(), tempOutputN5DatasetName, minimumVolumeCutoff,
+			blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, options.getOutputN5Path(), tempOutputN5DatasetName, minimumVolumeCutoff, Double.POSITIVE_INFINITY,
 					blockInformationList);	
 			SparkConnectedComponents.mergeConnectedComponents(sc, options.getOutputN5Path(), tempOutputN5DatasetName, finalOutputN5DatasetName,
 					blockInformationList);

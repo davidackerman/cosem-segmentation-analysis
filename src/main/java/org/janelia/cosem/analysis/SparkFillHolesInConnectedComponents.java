@@ -420,7 +420,7 @@ public class SparkFillHolesInConnectedComponents {
 			datasetToHoleFill = currentOrganelle;
 			if(!skipVolumeFilter) {
 				String tempVolumeFilteredDatasetName = currentOrganelle + "_volumeFilteredTemp"+outputN5DatasetSuffix;
-				SparkVolumeFilterConnectedComponents.volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, currentOrganelle, tempVolumeFilteredDatasetName, minimumVolumeCutoff, blockInformationList);
+				SparkVolumeFilterConnectedComponents.volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, currentOrganelle, tempVolumeFilteredDatasetName, minimumVolumeCutoff, Double.POSITIVE_INFINITY, blockInformationList);
 				directoriesToDelete.add(outputN5Path + "/" + tempVolumeFilteredDatasetName);
 				datasetToHoleFill = tempVolumeFilteredDatasetName;
 				ProcessingHelper.logMemory("Volume filter complete");
@@ -439,7 +439,7 @@ public class SparkFillHolesInConnectedComponents {
 				ProcessingHelper.logMemory("Stage 1 complete");
 	
 				blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, outputN5Path,
-						tempOutputN5DatasetName, minimumVolumeCutoffZero, blockInformationList);
+						tempOutputN5DatasetName, minimumVolumeCutoffZero, Double.POSITIVE_INFINITY, blockInformationList);
 				ProcessingHelper.logMemory("Stage 2 complete");
 	
 				SparkConnectedComponents.mergeConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName,

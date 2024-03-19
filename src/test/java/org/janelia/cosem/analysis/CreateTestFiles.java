@@ -89,6 +89,8 @@ public class CreateTestFiles {
 	    }
 	}
 	ImageCreationHelper.writeCustomImage(TestHelper.testN5Locations, "shapes",voxelValues, TestHelper.blockSize, DataType.UINT8);
+	ImageCreationHelper.writeCustomImage(TestHelper.testZarrLocations, "shapes",voxelValues, TestHelper.blockSize, DataType.UINT8);
+
     }
     
     public static void createShapesForCurvatureImage() throws IOException {
@@ -128,7 +130,9 @@ public class CreateTestFiles {
    	    }
    	}
    	ImageCreationHelper.writeCustomImage(TestHelper.testN5Locations, "shapesForCurvature",voxelValues, TestHelper.blockSize, DataType.UINT8);
-       }
+   	ImageCreationHelper.writeCustomImage(TestHelper.testZarrLocations, "shapesForCurvature",voxelValues, TestHelper.blockSize, DataType.UINT8);
+   
+    }
     
     public static void createSaddleShapeImage() throws IOException {
 	
@@ -146,6 +150,8 @@ public class CreateTestFiles {
 	    }
 	}
 	ImageCreationHelper.writeCustomImage(TestHelper.testN5Locations, "saddleShape",voxelValues, TestHelper.blockSize, DataType.UINT8);
+	ImageCreationHelper.writeCustomImage(TestHelper.testZarrLocations, "saddleShape",voxelValues, TestHelper.blockSize, DataType.UINT8);
+
     }
     
     public static void createPlanesImage() throws IOException {
@@ -163,17 +169,21 @@ public class CreateTestFiles {
    	}
    	
    	ImageCreationHelper.writeCustomImage(TestHelper.testN5Locations, "planes",voxelValues, TestHelper.blockSize, DataType.UINT8); //create it as already connected components
-       }
+   	ImageCreationHelper.writeCustomImage(TestHelper.testZarrLocations, "planes",voxelValues, TestHelper.blockSize, DataType.UINT8); //create it as already connected components
+  
+    }
     
     public static final void main(final String... args) throws Exception {
 	//create basic test dataset and do connected components for it
 	createShapesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("shapes", TestHelper.testN5Locations, null, TestHelper.testZarrLocations, "_cc", 0, 1, false, false);
 	SparkFillHolesInConnectedComponents.setupSparkAndFillHolesInConnectedComponents(TestHelper.testN5Locations, TestHelper.testN5Locations, "shapes_cc", 0, "_filled", false, false);
 
 	//create additional dataset for contact site testing, default as connected components
 	createPlanesImage();
 	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testN5Locations, null, TestHelper.testN5Locations, "_cc", 0, 1, false, false);
+	SparkConnectedComponents.standardConnectedComponentAnalysisWorkflow("planes", TestHelper.testZarrLocations, null, TestHelper.testZarrLocations, "_cc", 0, 1, false, false);
 	createShapesForCurvatureImage();
 	createSaddleShapeImage();
 	

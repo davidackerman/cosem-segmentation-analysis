@@ -268,7 +268,7 @@ public class SparkCellVolume {
 				options.getPlasmaMembraneN5Path(), options.getMaskN5Path(), outputN5Path, tempOutputN5DatasetName,
 				options.getMinimumVolumeCutoff(), blockInformationList);
 		blockInformationList = SparkConnectedComponents.unionFindConnectedComponents(sc, outputN5Path,
-				tempOutputN5DatasetName, options.getMinimumVolumeCutoff(), blockInformationList);
+				tempOutputN5DatasetName, options.getMinimumVolumeCutoff(), Double.POSITIVE_INFINITY, blockInformationList);
 		SparkConnectedComponents.mergeConnectedComponents(sc, outputN5Path, tempOutputN5DatasetName,
 				finalOutputN5DatasetName, false, blockInformationList);
 		sc.close();

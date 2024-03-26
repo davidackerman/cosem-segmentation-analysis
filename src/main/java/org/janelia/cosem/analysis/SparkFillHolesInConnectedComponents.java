@@ -418,13 +418,6 @@ public class SparkFillHolesInConnectedComponents {
 			JavaSparkContext sc = new JavaSparkContext(conf);
 			
 			datasetToHoleFill = currentOrganelle;
-			if(!skipVolumeFilter) {
-				String tempVolumeFilteredDatasetName = currentOrganelle + "_volumeFilteredTemp"+outputN5DatasetSuffix;
-				SparkVolumeFilterConnectedComponents.volumeFilterConnectedComponents(sc, inputN5Path, outputN5Path, currentOrganelle, tempVolumeFilteredDatasetName, minimumVolumeCutoff, Double.POSITIVE_INFINITY, blockInformationList);
-				directoriesToDelete.add(outputN5Path + "/" + tempVolumeFilteredDatasetName);
-				datasetToHoleFill = tempVolumeFilteredDatasetName;
-				ProcessingHelper.logMemory("Volume filter complete");
-			}
 			tempOutputN5DatasetName = datasetToHoleFill + "_holes" + "_blockwise_temp_to_delete";
 			finalOutputN5DatasetName = datasetToHoleFill + "_holes";
 			directoriesToDelete.add(outputN5Path + "/" + tempOutputN5DatasetName);
@@ -447,16 +440,23 @@ public class SparkFillHolesInConnectedComponents {
 				ProcessingHelper.logMemory("Stage 3 complete");
 			}
 			
+			
 
 			MapsForFillingHoles mapsForFillingHoles = getMapsForFillingHoles(sc,  inputN5Path, outputN5Path, datasetToHoleFill, blockInformationList);
-			fillHoles(sc, inputN5Path, outputN5Path, datasetToHoleFill, currentOrganelle+outputN5DatasetSuffix, mapsForFillingHoles, blockInformationList);
-			
+			String outputN5DatasetName= currentOrganelle+outputN5DatasetSuffix;
+			fillHoles(sc, inputN5Path, outputN5Path, datasetToHoleFill, outputN5DatasetName, mapsForFillingHoles, blockInformationList);
+			if(!skipVolumeFilter) {
+				String tempVolumeFilteredDatasetName = outputN5DatasetName + "_volumeFiltered";
+				SparkVolumeFilterConnectedComponents.volumeFilterConnectedComponents(sc, outputN5Path, outputN5Path, outputN5DatasetName, tempVolumeFilteredDatasetName, minimumVolumeCutoff, Double.POSITIVE_INFINITY, blockInformationList);
+				directoriesToDelete.add(outputN5Path + "/" + outputN5DatasetName);
+				ProcessingHelper.logMemory("Volume filter complete");
+			}
 			sc.close();
 		}
-
+		ProcessingHelper.logMemory("Stage 4 complete");
 		// Remove temporary files
 		SparkDirectoryDelete.deleteDirectories(conf, directoriesToDelete);
-		ProcessingHelper.logMemory("Stage 4 complete");
+		ProcessingHelper.logMemory("Stage 5 complete");
 	}
 
 	public static final void main(final String... args) throws IOException, InterruptedException, ExecutionException {
